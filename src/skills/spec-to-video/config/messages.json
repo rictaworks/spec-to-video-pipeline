@@ -1,0 +1,8 @@
+{
+  "common.missing_required_fields": "必須項目が不足しています: {fields}",
+  "common.ledger_not_found": "台帳が見つかりません: {path}",
+  "common.gate_blocked": "工程 {phase} の入口ゲートで停止しました。",
+  "common.invalid_environment": "実行環境を判定できません。環境変数 {name} を設定してください。",
+  "strings.missing_key": "文言キーが定義されていません: {key}",
+  "strings.missing_parameter": "文言 {key} の差し込み値が不足しています: {name}"
+}
