@@ -61,7 +61,9 @@ function generateAssets(input) {
     if (material.adopted === true) {
       continue;
     }
-    if (totalCost(costLog) >= input.costPolicy.hard_cap) {
+    const nextCost = estimateCost({ unit_price: input.unitPrice, quantity: 1, retake_factor: 1 });
+    // 次の生成を実行すると上限を超える場合、実行せずに停止します。
+    if (totalCost(costLog) + nextCost > input.costPolicy.hard_cap) {
       stoppedBy = 'hard_cap';
       break;
     }
@@ -82,12 +84,8 @@ function generateAssets(input) {
       operation: material.kind,
       model_name: String(material.model_name || ''),
       generation_count: material.generation_count,
-      estimated_cost: estimateCost({ unit_price: input.unitPrice, quantity: 1, retake_factor: 1 }),
+      estimated_cost: nextCost,
     });
-    if (totalCost(costLog) >= input.costPolicy.hard_cap) {
-      stoppedBy = 'hard_cap';
-      break;
-    }
   }
 
   if (stoppedBy === null && held.length > 0) {

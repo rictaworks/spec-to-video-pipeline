@@ -10,6 +10,7 @@ const path = require('node:path');
 const { t } = require('./lib/strings.js');
 
 const VALIDATION_PATH = path.join(__dirname, '..', 'config', 'validation.json');
+const NEWLINE = String.fromCharCode(10);
 
 /**
  * 秒を SRT の時刻表記へ変換します。
@@ -28,6 +29,7 @@ function formatTimestamp(seconds) {
 
 /**
  * 可読規約を検査します。違反があれば例外を投げます。
+ * 表示時間は、1つの字幕としてまとめて表示される時間で判定します。
  * @param {Record<string, any>} scene
  * @param {Record<string, any>} rules
  * @param {number} displaySec
@@ -58,30 +60,47 @@ function assertReadable(scene, rules, displaySec) {
 }
 
 /**
- * 台本台帳から SRT を組み立てます。
+ * 台本台帳と設計書のシーン情報から SRT を組み立てます。
+ * 時刻はシーンの設計尺で決めます。ナレーション実尺を積み上げると、実尺が設計尺を
+ * 下回るシーンの後で全編がずれるためです。
  * @param {Record<string, any>} transcript
+ * @param {Record<string, any>[]} scenesSpec
  * @returns {string}
  */
-function buildSubtitles(transcript) {
+function buildSubtitles(transcript, scenesSpec) {
   const rules = JSON.parse(fs.readFileSync(VALIDATION_PATH, 'utf8'));
+  if (!Array.isArray(scenesSpec)) {
+    throw new Error(t('subtitles.scenes_spec_missing'));
+  }
   /** @type {string[]} */
   const blocks = [];
   let index = 0;
   let cursor = 0;
   transcript.scenes.forEach((/** @type {Record<string, any>} */ scene) => {
-    const duration = scene.measured_narration_sec;
-    if (duration === undefined) {
+    if (scene.measured_narration_sec === undefined) {
       throw new Error(t('subtitles.duration_missing', { scene_id: String(scene.scene_id) }));
     }
-    assertReadable(scene, rules, duration);
+    const spec = scenesSpec.find(
+      (/** @type {Record<string, any>} */ item) => item.scene_id === scene.scene_id,
+    );
+    if (spec === undefined) {
+      throw new Error(t('subtitles.scene_not_in_spec', { scene_id: String(scene.scene_id) }));
+    }
+    const sceneDuration = Number(spec.duration_sec);
+    const displaySec = Math.min(scene.measured_narration_sec, sceneDuration);
+    assertReadable(scene, rules, displaySec);
     index += 1;
-    const start = cursor;
-    const end = cursor + duration;
-    const text = (scene.subtitle_lines || []).map((/** @type {Record<string, any>} */ line) => String(line.text)).join('\n');
-    blocks.push(`${index}\n${formatTimestamp(start)} --> ${formatTimestamp(end)}\n${text}\n`);
-    cursor = end;
+    const startSec = cursor;
+    const endSec = cursor + displaySec;
+    const text = (scene.subtitle_lines || [])
+      .map((/** @type {Record<string, any>} */ line) => String(line.text))
+      .join(NEWLINE);
+    blocks.push(
+      `${index}${NEWLINE}${formatTimestamp(startSec)} --> ${formatTimestamp(endSec)}${NEWLINE}${text}${NEWLINE}`,
+    );
+    cursor += sceneDuration;
   });
-  return blocks.join('\n');
+  return blocks.join(NEWLINE);
 }
 
-module.exports = { buildSubtitles, formatTimestamp };
+module.exports = { buildSubtitles, formatTimestamp, assertReadable };

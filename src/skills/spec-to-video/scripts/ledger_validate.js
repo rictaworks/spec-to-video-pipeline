@@ -63,7 +63,7 @@ function validateRequired(transcript, clips) {
 }
 
 /**
- * 字幕の可読を検査します。
+ * 字幕の可読を検査します。表示時間は、1つの字幕としてまとめて表示される時間で判定します。
  * @param {Record<string, any>} transcript
  * @param {Record<string, any>} rules
  * @returns {Finding[]}
@@ -96,7 +96,7 @@ function validateSubtitles(transcript, rules) {
     if (
       scene.measured_narration_sec !== undefined &&
       lines.length > 0 &&
-      scene.measured_narration_sec / lines.length < limit.min_display_sec
+      scene.measured_narration_sec < limit.min_display_sec
     ) {
       findings.push({
         code: 'subtitle.display',
@@ -111,7 +111,34 @@ function validateSubtitles(transcript, rules) {
 }
 
 /**
+ * 字幕が単体で状況を示しているかを検査します。指示語・接続詞で始まる字幕は、
+ * 前のシーンを見ていないと意味が取れないものとして検出します。
+ * 判断しきれない範囲は人間審査に委ねます。
+ * @param {Record<string, any>} transcript
+ * @param {Record<string, any>} rules
+ * @returns {Finding[]}
+ */
+function validateContextFree(transcript, rules) {
+  /** @type {Finding[]} */
+  const findings = [];
+  transcript.scenes.forEach((/** @type {Record<string, any>} */ scene) => {
+    const lines = scene.subtitle_lines || [];
+    if (lines.length === 0) return;
+    const head = String(lines[0].text).trim();
+    const matched = rules.dependent_prefixes.some((/** @type {string} */ prefix) => head.startsWith(prefix));
+    if (matched) {
+      findings.push({
+        code: 'subtitle.context',
+        message: t('validate.not_context_free', { scene_id: scene.scene_id }),
+      });
+    }
+  });
+  return findings;
+}
+
+/**
  * 尺整合を検査します。実尺がシーン尺を超える場合のみ不適合とします。
+ * 設計書側に対応するシーンが無い場合も検出します。
  * @param {Record<string, any>} transcript
  * @param {Record<string, any>[]} scenesSpec
  * @returns {Finding[]}
@@ -120,8 +147,17 @@ function validateDuration(transcript, scenesSpec) {
   /** @type {Finding[]} */
   const findings = [];
   transcript.scenes.forEach((/** @type {Record<string, any>} */ scene) => {
-    const spec = scenesSpec.find((/** @type {Record<string, any>} */ item) => item.scene_id === scene.scene_id);
-    if (spec === undefined || scene.measured_narration_sec === undefined) return;
+    const spec = scenesSpec.find(
+      (/** @type {Record<string, any>} */ item) => item.scene_id === scene.scene_id,
+    );
+    if (spec === undefined) {
+      findings.push({
+        code: 'duration.scene_not_in_spec',
+        message: t('validate.scene_not_in_spec', { scene_id: scene.scene_id }),
+      });
+      return;
+    }
+    if (scene.measured_narration_sec === undefined) return;
     if (scene.measured_narration_sec > spec.duration_sec) {
       findings.push({
         code: 'duration.over',
@@ -199,17 +235,22 @@ function validateWording(transcript, rules) {
 }
 
 /**
- * すべての検査を実行します。
+ * すべての検査を実行します。設計書のシーン情報が渡されない場合、
+ * 検査を飛ばして通過させず停止します。
  * @param {{transcript: Record<string, any>, clips: Record<string, any>, scenesSpec?: Record<string, any>[]}} input
  * @returns {Finding[]}
  */
 function validateAll(input) {
   const rules = loadRules();
-  const scenesSpec = input.scenesSpec || [];
+  if (!Array.isArray(input.scenesSpec)) {
+    throw new Error(t('validate.scenes_spec_missing'));
+  }
+  const scenesSpec = input.scenesSpec;
   const required = validateRequired(input.transcript, input.clips);
   if (required.length > 0) return required;
   return [
     ...validateSubtitles(input.transcript, rules),
+    ...validateContextFree(input.transcript, rules),
     ...validateDuration(input.transcript, scenesSpec),
     ...validateCutCount(input.clips, scenesSpec),
     ...validateWording(input.transcript, rules),
@@ -220,6 +261,7 @@ module.exports = {
   loadRules,
   validateRequired,
   validateSubtitles,
+  validateContextFree,
   validateDuration,
   validateCutCount,
   validateWording,

@@ -101,6 +101,10 @@ describe('ナレーションの合成', () => {
 });
 
 describe('字幕の生成', () => {
+  const SPEC = [
+    { scene_id: 'S1', duration_sec: 10 },
+    { scene_id: 'S2', duration_sec: 8 },
+  ];
   /** @returns {Record<string, any>} */
   function measuredTranscript() {
     return {
@@ -118,27 +122,59 @@ describe('字幕の生成', () => {
   });
 
   test('シーンを順に連結します', () => {
-    const srt = buildSubtitles(measuredTranscript());
+    const srt = buildSubtitles(measuredTranscript(), SPEC);
     expect(srt).toContain('00:00:00,000 --> 00:00:04,000');
-    expect(srt).toContain('00:00:04,000 --> 00:00:07,000');
+    expect(srt).toContain('00:00:10,000 --> 00:00:13,000');
     expect(srt).toContain('手順は三つです');
   });
 
   test('実尺が未計測の場合は生成せず停止します', () => {
     const transcript = measuredTranscript();
     delete transcript.scenes[0].measured_narration_sec;
-    expect(() => buildSubtitles(transcript)).toThrow();
+    expect(() => buildSubtitles(transcript, SPEC)).toThrow();
   });
 
   test('文字数上限を超える字幕は生成せず停止します', () => {
     const transcript = measuredTranscript();
     transcript.scenes[0].subtitle_lines = [{ text: 'あ'.repeat(40), char_count: 40 }];
-    expect(() => buildSubtitles(transcript)).toThrow();
+    expect(() => buildSubtitles(transcript, SPEC)).toThrow();
   });
 
   test('表示時間が下限を下回る場合も停止します', () => {
     const transcript = measuredTranscript();
     transcript.scenes[0].measured_narration_sec = 0.5;
-    expect(() => buildSubtitles(transcript)).toThrow();
+    expect(() => buildSubtitles(transcript, SPEC)).toThrow();
+  });
+});
+
+describe('字幕の時刻とシーン尺', () => {
+  const SPEC = [
+    { scene_id: 'S1', duration_sec: 10 },
+    { scene_id: 'S2', duration_sec: 8 },
+  ];
+
+  /** @returns {any} */
+  function shortNarration() {
+    return {
+      version: '1',
+      scenes: [
+        { scene_id: 'S1', subtitle_lines: [{ text: 'ここから始まります', char_count: 9 }], measured_narration_sec: 6 },
+        { scene_id: 'S2', subtitle_lines: [{ text: '手順は三つです', char_count: 7 }], measured_narration_sec: 7 },
+      ],
+    };
+  }
+
+  test('実尺が設計尺を下回っても、次のシーンは設計尺の位置から始まります', () => {
+    const srt = buildSubtitles(shortNarration(), SPEC);
+    expect(srt).toContain('00:00:00,000 --> 00:00:06,000');
+    expect(srt).toContain('00:00:10,000 --> 00:00:17,000');
+  });
+
+  test('設計書のシーン情報が渡されない場合は停止します', () => {
+    expect(() => buildSubtitles(shortNarration(), /** @type {any} */ (undefined))).toThrow();
+  });
+
+  test('設計書に無いシーンがある場合は停止します', () => {
+    expect(() => buildSubtitles(shortNarration(), [{ scene_id: 'S1', duration_sec: 10 }])).toThrow(/S2/);
   });
 });

@@ -162,3 +162,30 @@ describe('フレーム解析', () => {
     expect(() => analyzer.analyzeFrames({ frames: [], outputSpec: spec, actualSpec: spec })).toThrow();
   });
 });
+
+describe('ハードキャップの事前停止', () => {
+  test('上限を超える生成は実行しません', () => {
+    const result = generateAssets({
+      materials: materials(),
+      costLog: [],
+      costPolicy: { retry_limit: 5, hard_cap: 15 },
+      unitPrice: 10,
+      approved: true,
+      environment: { SPEC_TO_VIDEO_ENV: 'development' },
+    });
+    expect(totalCost(result.costLog)).toBeLessThanOrEqual(15);
+    expect(result.stopped_by).toBe('hard_cap');
+  });
+
+  test('上限に収まる範囲では生成します', () => {
+    const result = generateAssets({
+      materials: materials(),
+      costLog: [],
+      costPolicy: { retry_limit: 5, hard_cap: 20 },
+      unitPrice: 10,
+      approved: true,
+      environment: { SPEC_TO_VIDEO_ENV: 'development' },
+    });
+    expect(result.costLog).toHaveLength(2);
+  });
+});

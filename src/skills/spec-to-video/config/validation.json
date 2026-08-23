@@ -6,7 +6,7 @@
   },
   "narration": {
     "default_speaker": "四国めたん（ノーマル）",
-    "under_run_report_threshold_sec": 1.0
+    "under_run_report_threshold_sec": 1
   },
   "excluded_terms": [
     "ソリューション",
@@ -14,5 +14,24 @@
     "パラダイム",
     "アジェンダ",
     "コミット"
+  ],
+  "dependent_prefixes": [
+    "これ",
+    "それ",
+    "あれ",
+    "この",
+    "その",
+    "あの",
+    "こう",
+    "そう",
+    "また",
+    "そして",
+    "さらに",
+    "つまり",
+    "ただし",
+    "しかし",
+    "そのため",
+    "こちら",
+    "そちら"
   ]
 }
