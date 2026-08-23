@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rictaworks.jp/spec-to-video/clips.schema.json",
+  "title": "素材台帳",
+  "description": "素材ファイルと、そのプロンプト・モデル名・生成日・採否を紐づけた記録です。素材に関する単一の正です。",
+  "type": "object",
+  "required": ["version", "materials"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "string", "description": "台帳の形式バージョンです。" },
+    "materials": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/material" }
+    }
+  },
+  "$defs": {
+    "material": {
+      "type": "object",
+      "required": ["material_id", "scene_id", "order", "kind", "adopted", "generation_count"],
+      "additionalProperties": false,
+      "properties": {
+        "material_id": { "type": "string", "description": "素材識別子です。" },
+        "scene_id": { "type": "string", "description": "所属シーンです。" },
+        "order": { "type": "integer", "minimum": 0, "description": "シーン内の並び順です。" },
+        "kind": {
+          "type": "string",
+          "enum": ["still_seed", "clip", "figure", "title_card"],
+          "description": "素材の種別です。"
+        },
+        "source_still_id": {
+          "type": "string",
+          "description": "クリップの起点画像への参照です。kind が clip の場合に用います。"
+        },
+        "prompt": {
+          "type": "string",
+          "description": "生成に用いた記述です。被写体・動き・カメラワーク・尺・回避指定を含みます。"
+        },
+        "model_name": { "type": "string", "description": "使用したモデル名です。設計書と実行環境から取得します。" },
+        "model_version": { "type": "string" },
+        "generated_at": { "type": "string", "description": "生成日時です。ISO 8601 形式で記録します。" },
+        "generation_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "当該素材に対する生成回数です。リトライ上限の判定に用います。"
+        },
+        "adopted": { "type": "boolean", "description": "採否です。採用済みの素材は再生成しません。" },
+        "file_path": { "type": "string" },
+        "duration_sec": { "type": "number", "minimum": 0 },
+        "checksum": { "type": "string", "description": "同一性の確認に用います。" },
+        "review": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "映り込み確認・文言校正・規約確認の記録です。",
+          "properties": {
+            "intrusion_checked_at": { "type": "string" },
+            "proofread_at": { "type": "string" },
+            "terms_checked_at": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

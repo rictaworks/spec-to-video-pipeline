@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://rictaworks.jp/spec-to-video/transcript.schema.json",
+  "title": "台本台帳",
+  "description": "シーンごとの字幕・ナレーション・図解文言と、合成後に計測した実尺を保持します。",
+  "type": "object",
+  "required": ["version", "scenes"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "type": "string", "description": "台帳の形式バージョンです。" },
+    "scenes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/scene" }
+    }
+  },
+  "$defs": {
+    "scene": {
+      "type": "object",
+      "required": ["scene_id", "subtitle_lines", "narration_text", "figure_text"],
+      "additionalProperties": false,
+      "properties": {
+        "scene_id": { "type": "string", "description": "シーン識別子です。" },
+        "subtitle_lines": {
+          "type": "array",
+          "description": "字幕行です。行ごとの文字数を保持します。",
+          "items": {
+            "type": "object",
+            "required": ["text", "char_count"],
+            "additionalProperties": false,
+            "properties": {
+              "text": { "type": "string" },
+              "char_count": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "narration_text": { "type": "string", "description": "ナレーション原文です。" },
+        "figure_text": {
+          "type": "array",
+          "description": "図解内に含める文言です。",
+          "items": { "type": "string" }
+        },
+        "cuts": {
+          "type": "array",
+          "description": "カット単位のナレーションです。アニメーションとの同期はこの単位で行います。",
+          "items": {
+            "type": "object",
+            "required": ["cut_id", "narration_text"],
+            "additionalProperties": false,
+            "properties": {
+              "cut_id": { "type": "string" },
+              "narration_text": { "type": "string" },
+              "measured_narration_sec": { "type": "number", "minimum": 0 },
+              "audio_path": { "type": "string" }
+            }
+          }
+        },
+        "measured_narration_sec": {
+          "type": "number",
+          "minimum": 0,
+          "description": "合成後に計測したシーン全体の実尺です。秒で表します。"
+        },
+        "proofread_at": {
+          "type": "string",
+          "description": "校正完了日時です。ISO 8601 形式で記録します。"
+        }
+      }
+    }
+  }
+}
