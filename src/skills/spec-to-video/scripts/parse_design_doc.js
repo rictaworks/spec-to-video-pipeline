@@ -78,6 +78,31 @@ function resolveColumn(column, synonyms) {
 }
 
 /**
+ * 数値を厳密に読み取ります。単位や前置きは許容しますが、範囲や区切りを含む記述は
+ * 別の数値へ丸めず null を返し、欠損として扱わせます。
+ * @param {string} raw
+ * @returns {number | null}
+ */
+function parseNumeric(raw) {
+  const pattern = new RegExp("^[^0-9]*([0-9]+(?:[.][0-9]+)?)[^0-9]*$");
+  const match = raw.normalize('NFKC').trim().match(pattern);
+  if (match === null) return null;
+  const value = Number(match[1]);
+  return Number.isFinite(value) ? value : null;
+}
+
+/**
+ * シーン構成表かどうかを判定します。
+ * @param {{headers: string[], rows: string[][]}} table
+ * @param {Record<string, string[]>} synonyms
+ * @returns {boolean}
+ */
+function isSceneTable(table, synonyms) {
+  const mapped = table.headers.map((header) => resolveColumn(header, synonyms));
+  return mapped.includes('scene_id') && mapped.includes('duration_sec');
+}
+
+/**
  * 真偽を表す記述を判定します。
  * @param {string} value
  * @returns {boolean}
@@ -98,7 +123,7 @@ function collectKeyValues(tables, synonyms) {
   /** @type {string[]} */
   const unknownColumns = [];
   tables
-    .filter((table) => table.headers.length === 2)
+    .filter((table) => table.headers.length === 2 && !isSceneTable(table, synonyms))
     .forEach((table) => {
       table.rows.forEach((row) => {
         if (row.length < 2) return;
@@ -137,8 +162,8 @@ function collectScenes(tables, synonyms) {
         if (field === null || row[index] === undefined) return;
         const raw = row[index];
         if (field === 'duration_sec' || field === 'material_count') {
-          const numeric = Number(raw.replace(/[^0-9.]/g, ''));
-          if (Number.isFinite(numeric) && raw.trim() !== '') scene[field] = numeric;
+          const numeric = parseNumeric(raw);
+          if (numeric !== null) scene[field] = numeric;
           return;
         }
         if (field === 'subtitles') {
@@ -219,4 +244,12 @@ function parseDesignDoc(markdown) {
   };
 }
 
-module.exports = { parseDesignDoc, resolveColumn, normalizeKey, loadSynonyms, loadParsingRules };
+module.exports = {
+  parseDesignDoc,
+  resolveColumn,
+  normalizeKey,
+  loadSynonyms,
+  loadParsingRules,
+  parseNumeric,
+  isSceneTable,
+};
