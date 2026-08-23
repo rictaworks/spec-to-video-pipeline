@@ -20,8 +20,8 @@ if [ "$(git -C "$root" diff --cached --name-only | wc -l)" -eq 0 ]; then
   hook_block "$MSG_NO_STAGED"
 fi
 
-digest="$(git -C "$root" diff --cached | hook_digest)"
-marker="$marker_dir/security-$digest.done"
+digest="$(git -C "$root" diff --cached -- . ':(exclude)review-records' | hook_digest)"
+marker="$marker_dir/security-$digest.json"
 hook_trace "marker=$marker"
 
 if [ ! -f "$marker" ]; then

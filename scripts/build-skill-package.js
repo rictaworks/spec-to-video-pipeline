@@ -75,6 +75,10 @@ async function buildPackage(input) {
     output.on('error', reject);
     archive.on('error', reject);
     archive.pipe(output);
+    // 配布条件を配布物にも同梱します。
+    ['LICENSE', 'NOTICE'].forEach((name) => {
+      archive.file(path.join(REPO_ROOT, name), { name });
+    });
     files.forEach((file) => {
       archive.file(path.join(SKILL_DIR, file), { name: file });
     });
@@ -82,7 +86,7 @@ async function buildPackage(input) {
   });
   return {
     package_path: packagePath,
-    files,
+    files: files.concat(['LICENSE', 'NOTICE']),
     install_path: '~/.claude/skills/spec-to-video/',
   };
 }

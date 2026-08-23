@@ -120,10 +120,10 @@ audit & security gate は**リリース候補ごとに実施する**。マージ
 
 | スクリプト | 発動 | 通過条件 |
 |---|---|---|
-| `.claude/hooks/pre-commit-security-review.sh` | `git commit` | ステージ内容のダイジェストに対応する記録が `.claude/.review/` にある |
+| `.claude/hooks/pre-commit-security-review.sh` | `git commit` | ステージ内容のダイジェストに対応する記録が `review-records/` にある |
 | `.claude/hooks/pre-merge-review.sh` | `gh pr merge` / `git merge` | 対象コミットに対する reviewer と pr-checker の記録が**両方**ある |
 
-記録は実施後に自分で残す。ステージ内容や対象コミットが変わると記録は自動的に無効になる。
+記録は実施後に自分で残す。ステージ内容や対象コミットが変わると記録は自動的に無効になる。**記録は版管理対象の `review-records/` に残す**（第三者が実施を検証できるようにするため）。ダイジェストの算出からは `review-records/` を除外しているので、記録を追加してもステージ内容の判定は変わらない。
 
 ```bash
 bash .claude/hooks/record-review.sh security          # /security-review 実施後

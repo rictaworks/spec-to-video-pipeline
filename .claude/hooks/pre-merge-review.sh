@@ -43,8 +43,8 @@ fi
 
 short="${sha:0:12}"
 missing=""
-[ -f "$marker_dir/reviewer-$short.done" ]    || missing="$missing reviewer"
-[ -f "$marker_dir/pr-checker-$short.done" ]  || missing="$missing pr-checker"
+[ -f "$marker_dir/reviewer-$short.json" ]    || missing="$missing reviewer"
+[ -f "$marker_dir/pr-checker-$short.json" ]  || missing="$missing pr-checker"
 
 if [ -n "$missing" ]; then
   hook_block "$MSG_MERGE_REVIEW_REQUIRED

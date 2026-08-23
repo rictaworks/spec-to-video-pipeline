@@ -12,11 +12,11 @@ marker_dir="$(hook_marker_dir "$root")"
 
 case "$kind" in
   security)
-    digest="$(git -C "$root" diff --cached | hook_digest)"
+    digest="$(git -C "$root" diff --cached -- . ':(exclude)review-records' | hook_digest)"
     if [ "$(git -C "$root" diff --cached --name-only | wc -l)" -eq 0 ]; then
       hook_block "$MSG_NO_STAGED"
     fi
-    marker="$marker_dir/security-$digest.done"
+    marker="$marker_dir/security-$digest.json"
     ;;
   reviewer|pr-checker)
     if [ -z "$target" ]; then
@@ -29,13 +29,24 @@ case "$kind" in
     elif ! sha="$(git -C "$root" rev-parse --verify "$target^{commit}" 2>/dev/null)"; then
       hook_block "$MSG_REF_UNRESOLVED"
     fi
-    marker="$marker_dir/$kind-${sha:0:12}.done"
+    marker="$marker_dir/$kind-${sha:0:12}.json"
     ;;
   *)
     hook_block "$MSG_RECORD_USAGE"
     ;;
 esac
 
-printf 'recorded_at=%s\nkind=%s\ntarget=%s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$kind" "${target:-staged}" > "$marker"
+{
+  printf '{
+'
+  printf '  "kind": "%s",
+' "$kind"
+  printf '  "target": "%s",
+' "${target:-staged}"
+  printf '  "recorded_at": "%s"
+' "$(date '+%Y-%m-%dT%H:%M:%S%z')"
+  printf '}
+'
+} > "$marker"
 hook_trace "wrote $marker"
 printf '記録した: %s\n' "${marker#"$root/"}"
