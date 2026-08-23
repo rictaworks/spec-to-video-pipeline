@@ -19,5 +19,10 @@
   "validate.cut_count_mismatch": "シーン {scene_id} のカット数が設計書の指定 {expected} と一致しません。台帳は {actual} です。",
   "validate.figure_text_not_proofread": "シーン {scene_id} の図解文言が未校正です。",
   "validate.excluded_term": "シーン {scene_id} に平易でない語が含まれます: {term}",
-  "validate.not_context_free": "シーン {scene_id} の字幕が単体で状況を示していません。"
+  "validate.not_context_free": "シーン {scene_id} の字幕が単体で状況を示していません。",
+  "narration.engine_missing": "合成エンジンが設計書に指定されていません。narration.engine を設定してください。",
+  "narration.engine_unavailable": "合成エンジン {engine} を利用できません。別のエンジンへ切り替えず停止します。事前導入の状態を確認してください。",
+  "narration.no_cuts": "シーン {scene_id} にカットがありません。ナレーションはカット単位で合成します。",
+  "narration.measure_failed": "シーン {scene_id} のカット {cut_id} の実尺を計測できませんでした。",
+  "subtitles.duration_missing": "シーン {scene_id} の実尺が未計測です。先にナレーションを合成してください。"
 }
