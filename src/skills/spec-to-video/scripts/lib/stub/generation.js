@@ -5,6 +5,8 @@
  * 外部への通信を行わず、課金も発生しません。呼び出し内容だけを記録します。
  */
 
+const { createHash } = require('node:crypto');
+
 /** @type {{operation: string, prompt: string, model: string}[]} */
 const calls = [];
 
@@ -13,10 +15,27 @@ const calls = [];
  * @param {{operation: string, prompt: string, model: string}} request
  * @returns {{file_path: string, duration_sec: number, stub: true}}
  */
+/**
+ * 入力から決まる短い識別子を求めます。実行順に依存しない値にするためです。
+ * @param {{operation: string, prompt: string, model: string}} request
+ * @returns {string}
+ */
+function digest(request) {
+  return createHash('sha256')
+    .update([request.operation, request.prompt, request.model].join('|'))
+    .digest('hex')
+    .slice(0, 12);
+}
+
+/**
+ * 生成呼び出しを記録し、入力から決まる結果を返します。
+ * @param {{operation: string, prompt: string, model: string}} request
+ * @returns {{file_path: string, duration_sec: number, stub: true}}
+ */
 function generate(request) {
   calls.push(request);
   return {
-    file_path: `stub/${request.operation}-${calls.length}.bin`,
+    file_path: `stub/${request.operation}-${digest(request)}.bin`,
     duration_sec: 0,
     stub: true,
   };

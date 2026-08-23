@@ -55,3 +55,19 @@ describe('開発環境の分岐', () => {
     expect(stub.generate({ operation: 'figure', prompt: 'p', model: 'm' }).duration_sec).toBe(0);
   });
 });
+
+describe('スタブの決定性', () => {
+  test('同じ入力なら常に同じファイル名を返します', () => {
+    stub.reset();
+    const first = stub.generate({ operation: 'clip', prompt: 'p', model: 'm' });
+    const second = stub.generate({ operation: 'clip', prompt: 'p', model: 'm' });
+    expect(second.file_path).toBe(first.file_path);
+  });
+
+  test('入力が変われば別のファイル名になります', () => {
+    stub.reset();
+    const a = stub.generate({ operation: 'clip', prompt: 'p1', model: 'm' });
+    const b = stub.generate({ operation: 'clip', prompt: 'p2', model: 'm' });
+    expect(a.file_path).not.toBe(b.file_path);
+  });
+});

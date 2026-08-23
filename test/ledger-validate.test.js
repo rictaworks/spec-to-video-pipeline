@@ -147,3 +147,56 @@ describe('一括実行', () => {
     expect(validator.validateAll({ transcript: baseTranscript(), clips: baseClips(), scenesSpec: SCENES_SPEC })).toEqual([]);
   });
 });
+
+describe('入口ゲートの取りこぼし防止', () => {
+  test('設計書のシーン情報が渡されない場合は停止します', () => {
+    expect(() =>
+      validator.validateAll({ transcript: baseTranscript(), clips: baseClips() }),
+    ).toThrow();
+  });
+
+  test('設計書側に対応の無いシーンを検出します', () => {
+    const findings = validator.validateDuration(baseTranscript(), [
+      { scene_id: 'S99', duration_sec: 8, material_count: 1 },
+    ]);
+    expect(findings.some((f) => f.code === 'duration.scene_not_in_spec')).toBe(true);
+  });
+});
+
+describe('文脈自立の検査', () => {
+  const rules = validator.loadRules();
+
+  test.each(['これは重要です', 'その手順を行います', 'また設定します'])(
+    '%s は単体で状況を示していないものとして検出します',
+    (text) => {
+      const transcript = baseTranscript();
+      transcript.scenes[0].subtitle_lines = [{ text, char_count: text.length }];
+      expect(validator.validateContextFree(transcript, rules).some((f) => f.code === 'subtitle.context')).toBe(true);
+    },
+  );
+
+  test('状況を示す字幕は検出しません', () => {
+    expect(validator.validateContextFree(baseTranscript(), rules)).toEqual([]);
+  });
+});
+
+describe('表示時間の判定基準', () => {
+  test('ledger_validate と build_subtitles の判定が一致します', () => {
+    const { assertReadable } = require('../src/skills/spec-to-video/scripts/build_subtitles.js');
+    const rules = validator.loadRules();
+    const transcript = baseTranscript();
+    transcript.scenes[0].subtitle_lines = [
+      { text: 'ここから', char_count: 4 },
+      { text: '始まります', char_count: 5 },
+    ];
+    transcript.scenes[0].measured_narration_sec = 2.0;
+    const ledgerFindings = validator.validateSubtitles(transcript, rules);
+    let subtitleThrew = false;
+    try {
+      assertReadable(transcript.scenes[0], rules, 2.0);
+    } catch (error) {
+      subtitleThrew = true;
+    }
+    expect(ledgerFindings.some((f) => f.code === 'subtitle.display')).toBe(subtitleThrew);
+  });
+});

@@ -30,5 +30,9 @@
   "render.spec_missing": "出力規格が確定していません。設計書へ追記してください: {fields}",
   "render.no_adopted_material": "採用済みの素材がありません。素材の採否を確定してからレンダリングしてください。",
   "render.material_file_missing": "採用済み素材にファイルがありません: {ids}",
-  "analyze.no_frames": "解析対象のフレームがありません。レンダリング結果を確認してください。"
+  "analyze.no_frames": "解析対象のフレームがありません。レンダリング結果を確認してください。",
+  "validate.scenes_spec_missing": "設計書のシーン情報が渡されていません。尺整合とカット数の検査を実施できないため停止します。",
+  "validate.scene_not_in_spec": "シーン {scene_id} が設計書側に見つかりません。シーン識別子の対応を確認してください。",
+  "subtitles.scenes_spec_missing": "設計書のシーン情報が渡されていません。字幕の時刻を決められないため停止します。",
+  "subtitles.scene_not_in_spec": "シーン {scene_id} が設計書側に見つかりません。字幕の時刻を決められないため停止します。"
 }
