@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: タグの形式を検査します
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          echo "tag: ${TAG}"
+          if ! printf '%s' "${TAG}" | grep -Eq '^v[0-9]{2}\.[0-9]{2}\.[0-9]{2}$'; then
+            echo "タグは vNN.NN.NN の形式である必要があります" >&2
+            exit 1
+          fi
+
+      - name: 注釈付きタグであることを検査します
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          TYPE=$(git cat-file -t "${TAG}")
+          echo "object type: ${TYPE}"
+          if [ "${TYPE}" != "tag" ]; then
+            echo "注釈付きタグ（git tag -a）で作成してください" >&2
+            exit 1
+          fi
+
+      - name: 依存関係を導入します
+        run: npm ci
+
+      - name: テストを実行します
+        run: timeout 300 npm test
+
+      - name: 配布物を組み立てます
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          node scripts/build-skill-package.js "${VERSION}"
+          ls -l dist/
+
+      - name: Release へ添付します
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${GITHUB_REF_NAME}" dist/*.skill --clobber

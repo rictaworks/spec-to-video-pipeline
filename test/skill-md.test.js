@@ -2,7 +2,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const skillRoot = path.join(__dirname, '..', 'src', 'skills', 'spec-to-video');
-const source = fs.readFileSync(path.join(skillRoot, 'SKILL.md'), 'utf8');
+// 改行コードの違いに左右されないよう、復帰文字を取り除いて検査します。
+const CR = String.fromCharCode(13);
+const source = fs.readFileSync(path.join(skillRoot, 'SKILL.md'), 'utf8').split(CR).join('');
+
 
 /**
  * frontmatter を読み取ります。

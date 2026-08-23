@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: 依存関係を導入します
+        run: npm ci
+      - name: テストを実行します
+        run: timeout 300 npm test
+      - name: 型検査を実行します
+        run: timeout 120 npm run typecheck
+      - name: 配布物を組み立てられることを確認します
+        run: timeout 120 node scripts/build-skill-package.js 01.01.00
