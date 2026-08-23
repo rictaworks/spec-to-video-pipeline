@@ -1,0 +1,20 @@
+{
+  "name": "spec-to-video-pipeline",
+  "version": "1.1.0",
+  "description": "動画設計書からmp4を生成するエージェントスキルの開発リポジトリです。",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "test": "jest --passWithNoTests",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.2",
+    "jest": "^29.7.0",
+    "typescript": "^5.7.2"
+  }
+}
