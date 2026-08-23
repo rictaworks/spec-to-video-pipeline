@@ -1,0 +1,8 @@
+{
+  "luminance_delta": 0.1,
+  "max_flashes_per_second": 3,
+  "red_delta": 0.2,
+  "max_red_flashes_per_second": 3,
+  "pattern_ratio_limit": 0.25,
+  "discontinuity_delta": 0.35
+}
