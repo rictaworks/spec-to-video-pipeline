@@ -1,0 +1,7 @@
+# 配布物に CRLF が混入しないよう、テキストは LF で扱います。
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.mp4 binary
+*.wav binary
+*.skill binary
