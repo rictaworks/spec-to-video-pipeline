@@ -1,0 +1,10 @@
+.env
+MM/
+
+# .claude/ は既定で除外し、共有が必要なものだけ追跡する
+.claude/*
+!.claude/agents/
+!.claude/hooks/
+!.claude/settings.json
+.claude/settings.local.json
+DELETE/
