@@ -1,4 +1,9 @@
-const { parseDesignDoc, resolveColumn, loadSynonyms } = require('../src/skills/spec-to-video/scripts/parse_design_doc.js');
+const {
+  parseDesignDoc,
+  resolveColumn,
+  loadSynonyms,
+  parseNumeric,
+} = require('../src/skills/spec-to-video/scripts/parse_design_doc.js');
 
 const VALID_DOC = [
   '# 動画設計書',
@@ -87,5 +92,43 @@ describe('欠損時の扱い', () => {
   test('辞書に無い列名を記録します', () => {
     const doc = VALID_DOC.replace('| 項目 | 内容 |', '| 項目 | 内容 |').replace('| 話者 | 四国めたん |', '| 話者 | 四国めたん |\n| 担当者 | 未定 |');
     expect(parseDesignDoc(doc).unknown_columns).toContain('担当者');
+  });
+});
+
+describe('数値の読み取り', () => {
+  test.each([
+    ['8', 8],
+    ['8秒', 8],
+    ['約5', 5],
+    ['5.5', 5.5],
+  ])('%s を %s として読み取ります', (raw, expected) => {
+    expect(parseNumeric(raw)).toBe(expected);
+  });
+
+  test.each(['5-8', '5〜8', '1,200', '未定', ''])('%s は別の数値へ丸めず null を返します', (raw) => {
+    expect(parseNumeric(raw)).toBeNull();
+  });
+
+  test('範囲表記のシーン尺は欠損として停止します', () => {
+    const doc = VALID_DOC.replace('| S1 | 8 |', '| S1 | 5-8 |');
+    expect(() => parseDesignDoc(doc)).toThrow(/S1.duration_sec/);
+  });
+});
+
+describe('2列のシーン構成表', () => {
+  const TWO_COLUMN_DOC = VALID_DOC.replace(
+    '| シーン | 尺 | 種別 | カット数 | 映像 | 字幕 | ナレーション | 意図的な輝度変化 |',
+    '| シーン | 尺 |',
+  );
+
+  test('シーン識別子を辞書に無い列名として報告しません', () => {
+    let unknown = [];
+    try {
+      unknown = parseDesignDoc(TWO_COLUMN_DOC).unknown_columns;
+    } catch (error) {
+      unknown = [];
+    }
+    expect(unknown).not.toContain('S1');
+    expect(unknown).not.toContain('S2');
   });
 });
