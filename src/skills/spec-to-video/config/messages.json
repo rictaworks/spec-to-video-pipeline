@@ -7,5 +7,17 @@
   "strings.missing_parameter": "文言 {key} の差し込み値が不足しています: {name}",
   "env.unknown_mode": "実行環境を判定できません。環境変数 {name} に development または production を設定してください。",
   "env.credential_missing": "環境変数 {name} が未設定です。本番環境では生成 API の資格情報が必要です。",
-  "env.stub_used": "開発環境のため、生成 API を呼ばずスタブへ分岐しました: {operation}"
+  "env.stub_used": "開発環境のため、生成 API を呼ばずスタブへ分岐しました: {operation}",
+  "parse.missing_fields": "必須項目を抽出できませんでした。設計書へ追記してください: {fields}",
+  "parse.unknown_columns": "同義語辞書に無い列名がありました: {columns}",
+  "parse.no_scenes": "シーン構成表が見つかりません。シーン識別子と尺を含む表を設計書へ追加してください。",
+  "validate.schema_error": "台帳の項目に誤りがあります: {details}",
+  "validate.subtitle_too_long": "シーン {scene_id} の字幕が1行の文字数上限 {max} を超えています: {text}",
+  "validate.subtitle_too_many_lines": "シーン {scene_id} の字幕が行数上限 {max} を超えています。",
+  "validate.subtitle_too_short_display": "シーン {scene_id} の字幕の表示時間が下限 {min} 秒を下回ります。",
+  "validate.narration_over_scene": "シーン {scene_id} のナレーション実尺 {measured} 秒がシーン尺 {duration} 秒を超えています。文言の短縮または尺の延長を選んでください。",
+  "validate.cut_count_mismatch": "シーン {scene_id} のカット数が設計書の指定 {expected} と一致しません。台帳は {actual} です。",
+  "validate.figure_text_not_proofread": "シーン {scene_id} の図解文言が未校正です。",
+  "validate.excluded_term": "シーン {scene_id} に平易でない語が含まれます: {term}",
+  "validate.not_context_free": "シーン {scene_id} の字幕が単体で状況を示していません。"
 }

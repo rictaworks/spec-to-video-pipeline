@@ -1,0 +1,23 @@
+{
+  "scene_id": ["シーン", "シーンid", "no", "番号", "#", "scene"],
+  "duration_sec": ["尺", "長さ", "秒数", "時間", "duration"],
+  "material_kind": ["種別", "素材種別", "映像種別", "kind", "type"],
+  "material_count": ["カット数", "素材数", "点数", "count"],
+  "visual": ["映像", "映像内容", "画", "ビジュアル", "visual"],
+  "subtitles": ["字幕", "テロップ", "subtitle", "caption"],
+  "narration_policy": ["ナレーション", "読み", "語り", "narration"],
+  "intentional_luminance_change": ["意図的な輝度変化", "輝度変化", "演出上の明滅"],
+  "repository": ["リポジトリ", "リポジトリ名", "repository"],
+  "title_candidates": ["タイトル", "タイトル案", "title"],
+  "edition": ["エディション", "edition"],
+  "production_mode": ["制作モード", "モード", "mode"],
+  "models": ["使用モデル", "モデル", "models"],
+  "resolution": ["解像度", "サイズ", "resolution"],
+  "fps": ["フレームレート", "fps"],
+  "codec": ["コーデック", "codec"],
+  "audio": ["音声", "オーディオ", "audio"],
+  "retry_limit": ["リトライ上限", "再生成上限", "retry"],
+  "hard_cap": ["課金上限", "ハードキャップ", "上限額", "cap"],
+  "engine": ["合成エンジン", "tts", "エンジン"],
+  "speaker": ["話者", "声", "ボイス", "speaker"]
+}

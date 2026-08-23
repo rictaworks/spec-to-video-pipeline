@@ -1,0 +1,18 @@
+{
+  "subtitle": {
+    "max_chars_per_line": 20,
+    "max_lines": 2,
+    "min_display_sec": 1.2
+  },
+  "narration": {
+    "default_speaker": "四国めたん（ノーマル）",
+    "under_run_report_threshold_sec": 1.0
+  },
+  "excluded_terms": [
+    "ソリューション",
+    "シナジー",
+    "パラダイム",
+    "アジェンダ",
+    "コミット"
+  ]
+}

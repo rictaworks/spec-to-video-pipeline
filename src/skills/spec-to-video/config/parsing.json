@@ -1,0 +1,4 @@
+{
+  "truthy_values": ["はい", "あり", "true", "yes", "有"],
+  "subtitle_separators": ["<br>", "/", "、"]
+}
