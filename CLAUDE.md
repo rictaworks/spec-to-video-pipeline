@@ -192,12 +192,12 @@ bash .claude/hooks/record-review.sh pr-checker 12     # pr-checker 実施後
 | `src/skills/spec-to-video/` | **成果物のスキル本体。** `SKILL.md` / `references/` / `scripts/` / `assets/` を置く |
 | `test/pr<番号>/` | PR ごとのテスト。対象は開発サーバー |
 | `SPEC/` | 仕様書・リバースエンジニアリング成果物（ER図・DFD・シーケンス図・クラス図・状態遷移図・ユースケース図）を管理・更新 |
-| `TASKS/` | タスク |
-| `DEBUG/` | バグ報告 |
-| `CLIENT/` | クライアント要望 |
-| `WORK/` | 作業報告 |
-| `ENV/DEVELOPMENT.md` `ENV/PRODUCTION.md` | 開発環境・本番環境 |
-| `DELETE/` | ゴミ箱 |
+| `TASKS/` | タスク（Git 追跡外・ローカル管理） |
+| `DEBUG/` | バグ報告（Git 追跡外・ローカル管理） |
+| `CLIENT/` | クライアント要望（Git 追跡外・ローカル管理） |
+| `WORK/` | 作業報告（Git 追跡外・ローカル管理） |
+| `ENV/DEVELOPMENT.md` `ENV/PRODUCTION.md` | 開発環境・本番環境（Git 追跡外・ローカル管理） |
+| `DELETE/` | ゴミ箱（Git 追跡外・ローカル管理） |
 
 **`README.md` と `SPEC/` に未実装のものを書かない。**
 
