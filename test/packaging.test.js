@@ -54,3 +54,32 @@ describe('配布物の組み立て', () => {
     expect(result.install_path).toContain('skills/spec-to-video');
   });
 });
+
+describe('ライセンスの同梱', () => {
+  test('配布物の一覧に LICENSE と NOTICE が含まれます', async () => {
+    const fsx = require('node:fs');
+    const osx = require('node:os');
+    const pathx = require('node:path');
+    const outputDir = fsx.mkdtempSync(pathx.join(osx.tmpdir(), 'skillpkg-license-'));
+    const result = await builder.buildPackage({ version: '01.01.00', outputDir });
+    expect(result.files).toContain('LICENSE');
+    expect(result.files).toContain('NOTICE');
+  });
+
+  test('LICENSE は Apache License 2.0 です', () => {
+    const text = require('node:fs').readFileSync('LICENSE', 'utf8');
+    expect(text).toContain('Apache License');
+    expect(text).toContain('Version 2.0');
+  });
+
+  test('NOTICE に個人名を含めません', () => {
+    const text = require('node:fs').readFileSync('NOTICE', 'utf8');
+    expect(text).toContain('Ricta Works');
+    expect(text).toContain('info@rictaworks.jp');
+  });
+
+  test('package.json のライセンス宣言が一致します', () => {
+    const pkg = JSON.parse(require('node:fs').readFileSync('package.json', 'utf8'));
+    expect(pkg.license).toBe('Apache-2.0');
+  });
+});

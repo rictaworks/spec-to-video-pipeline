@@ -36,7 +36,7 @@ hook_extract_command() {
 }
 
 hook_marker_dir() {
-  local dir="$1/.claude/.review"
+  local dir="$1/review-records"
   mkdir -p "$dir"
   printf '%s\n' "$dir"
 }

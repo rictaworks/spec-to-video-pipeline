@@ -3,7 +3,7 @@
   "version": "1.1.0",
   "description": "動画設計書からmp4を生成するエージェントスキルの開発リポジトリです。",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=22.0.0"
   },
