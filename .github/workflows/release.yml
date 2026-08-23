@@ -28,11 +28,12 @@ jobs:
             echo "タグは vNN.NN.NN の形式である必要があります" >&2
             exit 1
           fi
-
       - name: 注釈付きタグであることを検査します
         run: |
           TAG="${GITHUB_REF_NAME}"
-          TYPE=$(git cat-file -t "${TAG}")
+          # チェックアウト時にタグオブジェクトが取得されないことがあるため、明示的に取得します。
+          git fetch --force --tags origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          TYPE=$(git cat-file -t "refs/tags/${TAG}")
           echo "object type: ${TYPE}"
           if [ "${TYPE}" != "tag" ]; then
             echo "注釈付きタグ（git tag -a）で作成してください" >&2
