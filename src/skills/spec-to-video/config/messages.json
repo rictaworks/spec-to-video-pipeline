@@ -4,5 +4,8 @@
   "common.gate_blocked": "工程 {phase} の入口ゲートで停止しました。",
   "common.invalid_environment": "実行環境を判定できません。環境変数 {name} を設定してください。",
   "strings.missing_key": "文言キーが定義されていません: {key}",
-  "strings.missing_parameter": "文言 {key} の差し込み値が不足しています: {name}"
+  "strings.missing_parameter": "文言 {key} の差し込み値が不足しています: {name}",
+  "env.unknown_mode": "実行環境を判定できません。環境変数 {name} に development または production を設定してください。",
+  "env.credential_missing": "環境変数 {name} が未設定です。本番環境では生成 API の資格情報が必要です。",
+  "env.stub_used": "開発環境のため、生成 API を呼ばずスタブへ分岐しました: {operation}"
 }
