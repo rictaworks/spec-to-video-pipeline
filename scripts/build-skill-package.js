@@ -71,7 +71,7 @@ async function buildPackage(input) {
   await new Promise((resolve, reject) => {
     const output = fs.createWriteStream(packagePath);
     const archive = archiver('zip', { zlib: { level: 9 } });
-    output.on('close', resolve);
+    output.on('close', () => resolve(undefined));
     archive.on('error', reject);
     archive.pipe(output);
     files.forEach((file) => {
