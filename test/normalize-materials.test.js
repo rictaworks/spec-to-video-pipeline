@@ -83,7 +83,7 @@ describe('素材をそろえる', () => {
     const result = await normalizeMaterials({
       materials: materials(), outputSpec: SPEC, normalizer, environment: PROD,
     });
-    const clip = result.materials.find((/** @type {any} */ m) => m.material_id === 'C01');
+    const clip = /** @type {any} */ (result.materials.find((/** @type {any} */ m) => m.material_id === 'C01'));
     expect(clip.file_path).toBe('normalized/C01.mp4');
     expect(clip.source_file_path).toBe('source/C01.mp4');
     expect(clip.normalized).toBe(true);
