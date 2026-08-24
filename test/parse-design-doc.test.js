@@ -1,134 +1,160 @@
 const {
-  parseDesignDoc,
-  resolveColumn,
-  loadSynonyms,
-  parseNumeric,
+  normalizeDesignDoc,
+  toSeconds,
+  resolveFps,
 } = require('../src/skills/spec-to-video/scripts/parse_design_doc.js');
 
-const VALID_DOC = [
-  '# 動画設計書',
-  '',
-  '| 項目 | 内容 |',
-  '|---|---|',
-  '| リポジトリ | sample-repo |',
-  '| エディション | full |',
-  '| 制作モード | generative |',
-  '| 使用モデル | veo, nano banana |',
-  '| 解像度 | 1920x1080 |',
-  '| フレームレート | 30 |',
-  '| コーデック | H.264 |',
-  '| 音声 | なし |',
-  '| リトライ上限 | 3 |',
-  '| 課金上限 | 5000 |',
-  '| 合成エンジン | local-tts |',
-  '| 話者 | 四国めたん |',
-  '',
-  '| シーン | 尺 | 種別 | カット数 | 映像 | 字幕 | ナレーション | 意図的な輝度変化 |',
-  '|---|---|---|---|---|---|---|---|',
-  '| S1 | 8 | clip | 2 | 街の遠景 | ここから始まります | 導入を読みます | なし |',
-  '| S2 | 12 | figure | 1 | 構成図 | 三つの手順です | 手順を読みます | あり |',
-].join('\n');
+/** @returns {any} */
+function baseExtracted() {
+  return {
+    meta: {
+      repository: 'sample-repo',
+      edition: 'full',
+      production_mode: 'generative',
+      models: 'veo, nano banana',
+    },
+    output_spec: { resolution: '1920x1080', fps: '30', codec: 'H.264', audio: 'AAC' },
+    cost_policy: { retry_limit: 3, hard_cap: 5000 },
+    narration: { engine: 'local-tts', speaker: '四国めたん' },
+    scenes: [
+      {
+        scene_id: 'S1',
+        duration_sec: 8,
+        material_kind: 'clip',
+        material_count: 2,
+        visual: '街の遠景',
+        subtitles: ['ここから始まります'],
+        narration_policy: '導入を読みます',
+        intentional_luminance_change: false,
+      },
+    ],
+  };
+}
 
-describe('列名の正規化', () => {
-  const synonyms = loadSynonyms();
-
+describe('尺の単位換算', () => {
   test.each([
-    ['尺', 'duration_sec'],
-    ['長さ', 'duration_sec'],
-    ['秒数', 'duration_sec'],
-    ['ＦＰＳ', 'fps'],
-    ['シーンID', 'scene_id'],
-  ])('%s を %s として扱います', (column, expected) => {
-    expect(resolveColumn(column, synonyms)).toBe(expected);
+    ['8', 8, 'second'],
+    ['8秒', 8, 'second'],
+    ['約5', 5, 'second'],
+    ['0:08', 8, 'timecode'],
+    ['2:42', 162, 'timecode'],
+    ['240F', 8, 'frame'],
+    ['4,860フレーム', 162, 'frame'],
+  ])('%s を %s 秒として読み取ります', (raw, seconds, unit) => {
+    const converted = toSeconds(raw, 30);
+    expect(converted).not.toBeNull();
+    expect(converted === null ? -1 : converted.seconds).toBeCloseTo(seconds, 3);
+    expect(converted === null ? '' : converted.unit).toBe(unit);
   });
 
-  test('辞書に無い列名は対応させません', () => {
-    expect(resolveColumn('担当者', synonyms)).toBeNull();
+  test.each(['未定', '5-8', ''])('%s は読み取らず null を返します', (raw) => {
+    expect(toSeconds(raw, 30)).toBeNull();
+  });
+
+  test('フレームレートが読み取れない場合、フレーム表記は換算しません', () => {
+    expect(toSeconds('240F', Number.NaN)).toBeNull();
+  });
+
+  test.each([
+    ['30', 30],
+    ['30fps', 30],
+    ['29.97fps', 29.97],
+  ])('フレームレート %s を読み取ります', (raw, expected) => {
+    expect(resolveFps({ fps: raw })).toBeCloseTo(expected, 2);
   });
 });
 
-describe('正常な設計書の正規化', () => {
-  const result = parseDesignDoc(VALID_DOC);
-
-  test('メタ情報を抽出します', () => {
-    expect(result.meta.production_mode).toBe('generative');
-    expect(result.meta.repository).toBe('sample-repo');
-  });
-
-  test('出力規格とコスト方針とナレーション設定を抽出します', () => {
-    expect(result.output_spec.fps).toBe('30');
-    expect(result.cost_policy.hard_cap).toBe('5000');
-    expect(result.narration.speaker).toBe('四国めたん');
-  });
-
-  test('シーンを抽出し、数値と真偽を変換します', () => {
-    expect(result.scenes).toHaveLength(2);
+describe('正規化の検査', () => {
+  test('必要な項目が揃っていれば正規化します', () => {
+    const result = normalizeDesignDoc(baseExtracted());
     expect(result.scenes[0].duration_sec).toBe(8);
-    expect(result.scenes[0].material_count).toBe(2);
-    expect(result.scenes[0].intentional_luminance_change).toBe(false);
-    expect(result.scenes[1].intentional_luminance_change).toBe(true);
+    expect(result.fps_used_for_conversion).toBe(30);
   });
 
-  test('字幕を行に分割します', () => {
-    expect(result.scenes[0].subtitles).toEqual(['ここから始まります']);
-  });
-});
-
-describe('欠損時の扱い', () => {
-  test('必須項目が欠けている場合は補完せず停止します', () => {
-    const doc = VALID_DOC.replace('| 制作モード | generative |\n', '');
-    expect(() => parseDesignDoc(doc)).toThrow(/production_mode/);
+  test('欠損はどのシーンのどの項目かを列挙して停止します', () => {
+    const extracted = baseExtracted();
+    delete extracted.scenes[0].visual;
+    delete extracted.meta.production_mode;
+    expect(() => normalizeDesignDoc(extracted)).toThrow(/meta.production_mode/);
+    expect(() => normalizeDesignDoc(extracted)).toThrow(/S1.visual/);
   });
 
-  test('シーン側の必須項目が欠けている場合も停止します', () => {
-    const doc = VALID_DOC.replace('| S2 | 12 | figure | 1 | 構成図 | 三つの手順です | 手順を読みます | あり |', '| S2 | 12 | figure | 1 | 構成図 | 三つの手順です |  | あり |');
-    expect(() => parseDesignDoc(doc)).toThrow(/S2\.narration_policy/);
+  test('意図的な輝度変化は真偽値でなければ欠損として扱います', () => {
+    const extracted = baseExtracted();
+    extracted.scenes[0].intentional_luminance_change = 'なし';
+    expect(() => normalizeDesignDoc(extracted)).toThrow(/intentional_luminance_change/);
   });
 
-  test('シーン構成表が無い場合は停止します', () => {
-    expect(() => parseDesignDoc('# 設計書\n\n本文のみです。')).toThrow();
+  test('字幕が空の場合も欠損として扱います', () => {
+    const extracted = baseExtracted();
+    extracted.scenes[0].subtitles = [];
+    expect(() => normalizeDesignDoc(extracted)).toThrow(/subtitles/);
   });
 
-  test('辞書に無い列名を記録します', () => {
-    const doc = VALID_DOC.replace('| 項目 | 内容 |', '| 項目 | 内容 |').replace('| 話者 | 四国めたん |', '| 話者 | 四国めたん |\n| 担当者 | 未定 |');
-    expect(parseDesignDoc(doc).unknown_columns).toContain('担当者');
-  });
-});
-
-describe('数値の読み取り', () => {
-  test.each([
-    ['8', 8],
-    ['8秒', 8],
-    ['約5', 5],
-    ['5.5', 5.5],
-  ])('%s を %s として読み取ります', (raw, expected) => {
-    expect(parseNumeric(raw)).toBe(expected);
+  test('対応していない制作モードは停止します', () => {
+    const extracted = baseExtracted();
+    extracted.meta.production_mode = 'hybrid';
+    expect(() => normalizeDesignDoc(extracted)).toThrow(/hybrid/);
   });
 
-  test.each(['5-8', '5〜8', '1,200', '未定', ''])('%s は別の数値へ丸めず null を返します', (raw) => {
-    expect(parseNumeric(raw)).toBeNull();
+  test('対応していない素材種別は停止します', () => {
+    const extracted = baseExtracted();
+    extracted.scenes[0].material_kind = 'photo';
+    expect(() => normalizeDesignDoc(extracted)).toThrow(/photo/);
   });
 
-  test('範囲表記のシーン尺は欠損として停止します', () => {
-    const doc = VALID_DOC.replace('| S1 | 8 |', '| S1 | 5-8 |');
-    expect(() => parseDesignDoc(doc)).toThrow(/S1.duration_sec/);
+  test('シーンが無い場合は停止します', () => {
+    const extracted = baseExtracted();
+    extracted.scenes = [];
+    expect(() => normalizeDesignDoc(extracted)).toThrow();
   });
 });
 
-describe('2列のシーン構成表', () => {
-  const TWO_COLUMN_DOC = VALID_DOC.replace(
-    '| シーン | 尺 | 種別 | カット数 | 映像 | 字幕 | ナレーション | 意図的な輝度変化 |',
-    '| シーン | 尺 |',
-  );
+describe('実運用の企画書の形式', () => {
+  /** フレーム表記・別表のカット数・Remotion 単独モードを含む形式です。 */
+  function frameBased() {
+    const extracted = baseExtracted();
+    extracted.meta.production_mode = 'remotion_only';
+    extracted.output_spec.fps = '30fps';
+    extracted.scenes = [
+      {
+        scene_id: 'S1',
+        duration_sec: '240F',
+        material_kind: 'title_card',
+        material_count: 1,
+        visual: '黒背景にタイトル',
+        subtitles: ['第1章'],
+        narration_policy: 'タイトル読み上げのみ',
+        intentional_luminance_change: false,
+      },
+      {
+        scene_id: 'S8',
+        duration_sec: '360F',
+        material_kind: 'title_card',
+        material_count: 3,
+        visual: '章の一覧とエンドカード',
+        subtitles: ['次章で扱います'],
+        narration_policy: '次章以降で各手続きを扱う',
+        intentional_luminance_change: false,
+      },
+    ];
+    return extracted;
+  }
 
-  test('シーン識別子を辞書に無い列名として報告しません', () => {
-    let unknown = [];
-    try {
-      unknown = parseDesignDoc(TWO_COLUMN_DOC).unknown_columns;
-    } catch (error) {
-      unknown = [];
-    }
-    expect(unknown).not.toContain('S1');
-    expect(unknown).not.toContain('S2');
+  test('フレーム表記のまま読み取り、秒へ揃えます', () => {
+    const result = normalizeDesignDoc(frameBased());
+    expect(result.scenes[0].duration_sec).toBe(8);
+    expect(result.scenes[1].duration_sec).toBe(12);
+    expect(result.scenes[0].duration_source_unit).toBe('frame');
+  });
+
+  test('換算に用いたフレームレートを記録します', () => {
+    expect(normalizeDesignDoc(frameBased()).fps_used_for_conversion).toBe(30);
+  });
+
+  test('フレームレートが読み取れない場合は欠損として停止します', () => {
+    const extracted = frameBased();
+    extracted.output_spec.fps = '未定';
+    expect(() => normalizeDesignDoc(extracted)).toThrow(/duration_sec/);
   });
 });

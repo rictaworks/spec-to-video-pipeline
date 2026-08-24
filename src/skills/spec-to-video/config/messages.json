@@ -9,7 +9,6 @@
   "env.credential_missing": "環境変数 {name} が未設定です。本番環境では生成 API の資格情報が必要です。",
   "env.stub_used": "開発環境のため、生成 API を呼ばずスタブへ分岐しました: {operation}",
   "parse.missing_fields": "必須項目を抽出できませんでした。設計書へ追記してください: {fields}",
-  "parse.unknown_columns": "同義語辞書に無い列名がありました: {columns}",
   "parse.no_scenes": "シーン構成表が見つかりません。シーン識別子と尺を含む表を設計書へ追加してください。",
   "validate.schema_error": "台帳の項目に誤りがあります: {details}",
   "validate.subtitle_too_long": "シーン {scene_id} の字幕が1行の文字数上限 {max} を超えています: {text}",
@@ -45,5 +44,7 @@
   "validate.direction_unknown_value": "シーン {scene_id} の演出 {field} の値 {value} は対応表にありません。",
   "validate.direction_blend_reason_missing": "シーン {scene_id} は輝度が上がる描画モード {mode} を選んでいますが、理由が記録されていません。",
   "validate.direction_effect_purpose_missing": "シーン {scene_id} のエフェクト {name} に使う目的が記録されていません。",
-  "validate.value_unrecorded": "未記録"
+  "validate.value_unrecorded": "未記録",
+  "parse.unknown_production_mode": "制作モード {value} は対応していません。generative または remotion_only のいずれかを読み取ってください。",
+  "parse.unknown_material_kind": "シーン {scene_id} の素材種別 {value} は対応していません。clip / figure / title_card のいずれかへ対応づけてください。"
 }
