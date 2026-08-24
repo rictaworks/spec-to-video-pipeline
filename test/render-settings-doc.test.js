@@ -16,7 +16,7 @@ describe('レンダリング設定の定め', () => {
   const doc = read(path.join(skillDir, 'references', 'remotion-project.md'));
 
   test('P12 で明示する設定の節があります', () => {
-    expect(doc).toContain('## 6. レンダリングの設定と素材の描画');
+    expect(doc).toContain('## 7. レンダリングの設定と素材の描画');
     expect(doc).toContain('### 6.1 既定値に任せない設定');
   });
 
