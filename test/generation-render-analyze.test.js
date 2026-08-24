@@ -69,8 +69,8 @@ describe('レンダリング', () => {
     expect(() => assertOutputSpec({ resolution: '1920x1080' })).toThrow(/fps/);
   });
 
-  test('採用済み素材のみでレンダリングし、レンダ回数を増やします', () => {
-    const result = renderVideo({
+  test('採用済み素材のみでレンダリングし、レンダ回数を増やします', async () => {
+    const result = await renderVideo({
       outputSpec: spec,
       materials: [
         { material_id: 'M1', adopted: true, file_path: 'a.mp4' },
@@ -85,16 +85,16 @@ describe('レンダリング', () => {
     expect(result.file_path).toBe('out/final.mp4');
   });
 
-  test('採用済み素材が無い場合は停止します', () => {
-    expect(() =>
+  test('採用済み素材が無い場合は停止します', async () => {
+    await expect(
       renderVideo({ outputSpec: spec, materials: [{ material_id: 'M1', adopted: false }], costLog: [], renderCount: 0, outputPath: 'out/final.mp4', renderer }),
-    ).toThrow();
+    ).rejects.toThrow();
   });
 
-  test('採用済みなのにファイルが無い場合は停止します', () => {
-    expect(() =>
+  test('採用済みなのにファイルが無い場合は停止します', async () => {
+    await expect(
       renderVideo({ outputSpec: spec, materials: [{ material_id: 'M1', adopted: true }], costLog: [], renderCount: 0, outputPath: 'out/final.mp4', renderer }),
-    ).toThrow(/M1/);
+    ).rejects.toThrow(/M1/);
   });
 });
 
@@ -258,5 +258,68 @@ describe('対象ごとの課金上限', () => {
     });
     expect(result.stopped_by).toBe('hard_cap');
     expect(result.costLog).toHaveLength(1);
+  });
+});
+
+describe('非同期のレンダラー', () => {
+  const spec = { resolution: "1920x1080", fps: "30fps", codec: "H.264", audio: "AAC" };
+  const materials = [{ material_id: "M1", adopted: true, file_path: "a.mp4" }];
+
+  test('Promise を返すレンダラーの完了を待ちます', async () => {
+    const renderer = {
+      render: (/** @type {any} */ input) =>
+        new Promise((resolve) => setTimeout(() => resolve({ file_path: input.outputPath }), 10)),
+    };
+    const result = await renderVideo({
+      outputSpec: spec,
+      materials,
+      costLog: [],
+      renderCount: 0,
+      outputPath: "out/final.mp4",
+      renderer,
+    });
+    expect(result.file_path).toBe("out/final.mp4");
+    expect(result.render_count).toBe(1);
+  });
+
+  test('同期のレンダラーも従来どおり動作します', async () => {
+    const renderer = { render: (/** @type {any} */ input) => ({ file_path: input.outputPath }) };
+    const result = await renderVideo({
+      outputSpec: spec,
+      materials,
+      costLog: [],
+      renderCount: 2,
+      outputPath: "out/final.mp4",
+      renderer,
+    });
+    expect(result.render_count).toBe(3);
+  });
+
+  test('レンダラーが失敗した場合はレンダ回数を加算せず停止します', async () => {
+    const renderer = /** @type {any} */ ({ render: () => Promise.reject(new Error("書き込みに失敗しました")) });
+    await expect(
+      renderVideo({
+        outputSpec: spec,
+        materials,
+        costLog: [],
+        renderCount: 0,
+        outputPath: "out/final.mp4",
+        renderer,
+      }),
+    ).rejects.toThrow();
+  });
+
+  test('ファイルパスを返さないレンダラーは停止します', async () => {
+    const renderer = /** @type {any} */ ({ render: () => Promise.resolve({}) });
+    await expect(
+      renderVideo({
+        outputSpec: spec,
+        materials,
+        costLog: [],
+        renderCount: 0,
+        outputPath: "out/final.mp4",
+        renderer,
+      }),
+    ).rejects.toThrow();
   });
 });
