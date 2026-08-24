@@ -1,17 +1,26 @@
 'use strict';
 
 /**
- * 工程 P1: 動画設計書を正規化構造へ変換します。
- * 必須項目が抽出できない場合、推測で補完せず欠損を列挙して停止します。
+ * 工程 P1: 動画設計書から読み取った正規化構造を検査し、尺を秒へ揃えます。
+ *
+ * 設計書の体裁は案件ごとに異なります。読み取りそのものはエージェントの判断で行い、
+ * このスクリプトは受け取った構造の必須項目・型・単位を検査します。
+ * 欠損は推測で補完せず、どのシーンのどの項目かを列挙して停止します。
  */
 
+const { t } = require('./lib/strings.js');
 const fs = require('node:fs');
 const path = require('node:path');
-const { extractTables } = require('./lib/markdown-table.js');
-const { t } = require('./lib/strings.js');
 
-const SYNONYMS_PATH = path.join(__dirname, '..', 'config', 'design-doc-synonyms.json');
 const PARSING_PATH = path.join(__dirname, '..', 'config', 'parsing.json');
+
+/**
+ * 尺の単位として受け付ける表記を読み込みます。
+ * @returns {{frame_suffixes: string[], second_suffixes: string[]}}
+ */
+function loadDurationUnits() {
+  return JSON.parse(fs.readFileSync(PARSING_PATH, 'utf8')).duration_units;
+}
 
 const SCENE_REQUIRED = [
   'scene_id',
@@ -28,186 +37,97 @@ const OUTPUT_REQUIRED = ['resolution', 'fps', 'codec', 'audio'];
 const COST_REQUIRED = ['retry_limit', 'hard_cap'];
 const NARRATION_REQUIRED = ['engine', 'speaker'];
 
-/**
- * 正規表現で使う文字を退避します。
- * @param {string} value
- * @returns {string}
- */
-function escapeForRegExp(value) {
-  return value.replace(/[.*+?^${}()|[]\]/g, String.raw`$&`);
-}
+const MATERIAL_KINDS = ['clip', 'figure', 'title_card'];
+const PRODUCTION_MODES = ['generative', 'remotion_only'];
 
 /**
- * 照合用に表記を揃えます。全角・半角、大文字・小文字、空白の違いを無視します。
- * @param {string} value
- * @returns {string}
+ * 尺の表記を秒へ揃えます。秒・フレーム数・分:秒のいずれも受け付けます。
+ * 判断が付かない表記は補完せず null を返します。
+ * @param {string | number} raw
+ * @param {number} fps
+ * @returns {{seconds: number, unit: string} | null}
  */
-function normalizeKey(value) {
-  return value.normalize('NFKC').toLowerCase().replace(/\s+/g, '').replace(/[()]/g, '');
-}
+function toSeconds(raw, fps) {
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return { seconds: raw, unit: 'second' };
+  }
+  if (typeof raw !== 'string') {
+    return null;
+  }
+  const value = raw.normalize('NFKC').trim();
 
-/**
- * 同義語辞書を読み込みます。
- * @returns {Record<string, string[]>}
- */
-function loadSynonyms() {
-  return JSON.parse(fs.readFileSync(SYNONYMS_PATH, 'utf8'));
-}
+  const timecode = value.match(new RegExp('^(?:([0-9]+):)?([0-9]{1,2}):([0-9]{1,2})(?:[.]([0-9]+))?$'));
+  if (timecode !== null) {
+    const hours = timecode[1] === undefined ? 0 : Number(timecode[1]);
+    const minutes = Number(timecode[2]);
+    const seconds = Number(timecode[3]);
+    const fraction = timecode[4] === undefined ? 0 : Number('0.' + timecode[4]);
+    return { seconds: hours * 3600 + minutes * 60 + seconds + fraction, unit: 'timecode' };
+  }
 
-/**
- * 読み取りに用いる語彙を読み込みます。判定に使う語をスクリプトへ直書きしないための設定です。
- * @returns {{truthy_values: string[], subtitle_separators: string[]}}
- */
-function loadParsingRules() {
-  return JSON.parse(fs.readFileSync(PARSING_PATH, 'utf8'));
-}
+  const units = loadDurationUnits();
+  const frames = value
+    .replace(/,/g, '')
+    .match(new RegExp('^([0-9]+(?:[.][0-9]+)?)[ 　]*(?:' + units.frame_suffixes.join('|') + ')$'));
+  if (frames !== null) {
+    if (!Number.isFinite(fps) || fps <= 0) {
+      return null;
+    }
+    return { seconds: Number(frames[1]) / fps, unit: 'frame' };
+  }
 
-/**
- * 列名を正規化した項目名へ変換します。対応が付かない場合は null を返します。
- * @param {string} column
- * @param {Record<string, string[]>} synonyms
- * @returns {string | null}
- */
-function resolveColumn(column, synonyms) {
-  const target = normalizeKey(column);
-  for (const [field, aliases] of Object.entries(synonyms)) {
-    if (normalizeKey(field) === target) return field;
-    if (aliases.some((alias) => normalizeKey(alias) === target)) return field;
+  const seconds = value
+    .replace(/,/g, '')
+    .match(new RegExp('^[^0-9.]*([0-9]+(?:[.][0-9]+)?)[ 　]*(?:' + units.second_suffixes.join('|') + ')?$'));
+  if (seconds !== null) {
+    return { seconds: Number(seconds[1]), unit: 'second' };
   }
   return null;
 }
 
 /**
- * 数値を厳密に読み取ります。単位や前置きは許容しますが、範囲や区切りを含む記述は
- * 別の数値へ丸めず null を返し、欠損として扱わせます。
- * @param {string} raw
+ * フレームレートを取り出します。
+ * @param {Record<string, any>} outputSpec
  * @returns {number | null}
  */
-function parseNumeric(raw) {
-  const pattern = new RegExp("^[^0-9]*([0-9]+(?:[.][0-9]+)?)[^0-9]*$");
-  const match = raw.normalize('NFKC').trim().match(pattern);
-  if (match === null) return null;
-  const value = Number(match[1]);
-  return Number.isFinite(value) ? value : null;
+function resolveFps(outputSpec) {
+  if (outputSpec === undefined || outputSpec === null) {
+    return null;
+  }
+  const raw = String(outputSpec.fps === undefined ? '' : outputSpec.fps).normalize('NFKC');
+  const matched = raw.match(new RegExp('([0-9]+(?:[.][0-9]+)?)'));
+  if (matched === null) {
+    return null;
+  }
+  const value = Number(matched[1]);
+  return Number.isFinite(value) && value > 0 ? value : null;
 }
 
 /**
- * シーン構成表かどうかを判定します。
- * @param {{headers: string[], rows: string[][]}} table
- * @param {Record<string, string[]>} synonyms
- * @returns {boolean}
- */
-function isSceneTable(table, synonyms) {
-  const mapped = table.headers.map((header) => resolveColumn(header, synonyms));
-  return mapped.includes('scene_id') && mapped.includes('duration_sec');
-}
-
-/**
- * 真偽を表す記述を判定します。
- * @param {string} value
- * @returns {boolean}
- */
-function parseBoolean(value) {
-  return loadParsingRules().truthy_values.map(normalizeKey).includes(normalizeKey(value));
-}
-
-/**
- * 2列の表を項目と値の対応として読み取ります。
- * @param {{headers: string[], rows: string[][]}[]} tables
- * @param {Record<string, string[]>} synonyms
- * @returns {{values: Record<string, string>, unknownColumns: string[]}}
- */
-function collectKeyValues(tables, synonyms) {
-  /** @type {Record<string, string>} */
-  const values = {};
-  /** @type {string[]} */
-  const unknownColumns = [];
-  tables
-    .filter((table) => table.headers.length === 2 && !isSceneTable(table, synonyms))
-    .forEach((table) => {
-      table.rows.forEach((row) => {
-        if (row.length < 2) return;
-        const field = resolveColumn(row[0], synonyms);
-        if (field === null) {
-          unknownColumns.push(row[0]);
-          return;
-        }
-        values[field] = row[1];
-      });
-    });
-  return { values, unknownColumns };
-}
-
-/**
- * シーン構成表を読み取ります。
- * @param {{headers: string[], rows: string[][]}[]} tables
- * @param {Record<string, string[]>} synonyms
- * @returns {{scenes: Record<string, any>[], unknownColumns: string[]}}
- */
-function collectScenes(tables, synonyms) {
-  /** @type {Record<string, any>[]} */
-  const scenes = [];
-  /** @type {string[]} */
-  const unknownColumns = [];
-  tables.forEach((table) => {
-    const mapped = table.headers.map((header) => resolveColumn(header, synonyms));
-    if (!mapped.includes('scene_id') || !mapped.includes('duration_sec')) return;
-    mapped.forEach((field, index) => {
-      if (field === null) unknownColumns.push(table.headers[index]);
-    });
-    table.rows.forEach((row) => {
-      /** @type {Record<string, any>} */
-      const scene = {};
-      mapped.forEach((field, index) => {
-        if (field === null || row[index] === undefined) return;
-        const raw = row[index];
-        if (field === 'duration_sec' || field === 'material_count') {
-          const numeric = parseNumeric(raw);
-          if (numeric !== null) scene[field] = numeric;
-          return;
-        }
-        if (field === 'subtitles') {
-          scene[field] = raw.split(/<br>|\/|、/).map((line) => line.trim()).filter(Boolean);
-          return;
-        }
-        if (field === 'intentional_luminance_change') {
-          scene[field] = parseBoolean(raw);
-          return;
-        }
-        scene[field] = raw;
-      });
-      if (scene.scene_id !== undefined && String(scene.scene_id).trim() !== '') scenes.push(scene);
-    });
-  });
-  return { scenes, unknownColumns };
-}
-
-/**
- * 動画設計書を正規化します。欠損がある場合は例外を投げます。
- * @param {string} markdown
+ * エージェントが読み取った構造を検査し、尺を秒へ揃えて返します。
+ * @param {Record<string, any>} extracted
  * @returns {Record<string, any>}
  */
-function parseDesignDoc(markdown) {
-  const synonyms = loadSynonyms();
-  const tables = extractTables(markdown);
-  const keyValues = collectKeyValues(tables, synonyms);
-  const sceneResult = collectScenes(tables, synonyms);
-
-  if (sceneResult.scenes.length === 0) throw new Error(t('parse.no_scenes'));
-
+function normalizeDesignDoc(extracted) {
+  if (extracted === null || typeof extracted !== 'object') {
+    throw new TypeError('extracted must be an object');
+  }
   /** @type {string[]} */
   const missing = [];
+
   /**
+   * @param {Record<string, any> | undefined} source
    * @param {string[]} fields
+   * @param {string} label
    * @returns {Record<string, any>}
    */
-  const pick = (fields) => {
+  const pick = (source, fields, label) => {
     /** @type {Record<string, any>} */
     const picked = {};
     fields.forEach((field) => {
-      const value = keyValues.values[field];
-      if (value === undefined || value === '') {
-        missing.push(field);
+      const value = source === undefined || source === null ? undefined : source[field];
+      if (value === undefined || String(value).trim() === '') {
+        missing.push(label + '.' + field);
         return;
       }
       picked[field] = value;
@@ -215,41 +135,85 @@ function parseDesignDoc(markdown) {
     return picked;
   };
 
-  const meta = pick(META_REQUIRED);
-  const outputSpec = pick(OUTPUT_REQUIRED);
-  const costPolicy = pick(COST_REQUIRED);
-  const narration = pick(NARRATION_REQUIRED);
+  const meta = pick(extracted.meta, META_REQUIRED, 'meta');
+  const outputSpec = pick(extracted.output_spec, OUTPUT_REQUIRED, 'output_spec');
+  const costPolicy = pick(extracted.cost_policy, COST_REQUIRED, 'cost_policy');
+  const narration = pick(extracted.narration, NARRATION_REQUIRED, 'narration');
 
-  sceneResult.scenes.forEach((scene) => {
+  if (meta.production_mode !== undefined && !PRODUCTION_MODES.includes(String(meta.production_mode))) {
+    throw new Error(t('parse.unknown_production_mode', { value: String(meta.production_mode) }));
+  }
+
+  const fps = resolveFps(extracted.output_spec);
+  const scenes = Array.isArray(extracted.scenes) ? extracted.scenes : [];
+  if (scenes.length === 0) {
+    throw new Error(t('parse.no_scenes'));
+  }
+
+  const normalizedScenes = scenes.map((/** @type {Record<string, any>} */ scene) => {
+    const id = scene === null || scene === undefined ? '?' : String(scene.scene_id);
+    /** @type {Record<string, any>} */
+    const normalized = Object.assign({}, scene);
+
     SCENE_REQUIRED.forEach((field) => {
-      if (scene[field] === undefined || scene[field] === '') {
-        missing.push(`${String(scene.scene_id)}.${field}`);
+      const value = scene === null || scene === undefined ? undefined : scene[field];
+      if (field === 'intentional_luminance_change') {
+        if (typeof value !== 'boolean') {
+          missing.push(id + '.' + field);
+        }
+        return;
+      }
+      if (field === 'subtitles') {
+        if (!Array.isArray(value) || value.length === 0) {
+          missing.push(id + '.' + field);
+        }
+        return;
+      }
+      if (value === undefined || String(value).trim() === '') {
+        missing.push(id + '.' + field);
       }
     });
+
+    if (scene !== null && scene !== undefined && scene.duration_sec !== undefined) {
+      const converted = toSeconds(scene.duration_sec, fps === null ? Number.NaN : fps);
+      if (converted === null) {
+        missing.push(id + '.duration_sec');
+      } else {
+        normalized.duration_sec = Number(converted.seconds.toFixed(3));
+        normalized.duration_source_unit = converted.unit;
+      }
+    }
+
+    if (scene !== null && scene !== undefined && scene.material_kind !== undefined) {
+      if (!MATERIAL_KINDS.includes(String(scene.material_kind))) {
+        throw new Error(t('parse.unknown_material_kind', { scene_id: id, value: String(scene.material_kind) }));
+      }
+    }
+
+    if (scene !== null && scene !== undefined && scene.material_count !== undefined) {
+      const count = Number(scene.material_count);
+      if (!Number.isInteger(count) || count < 1) {
+        missing.push(id + '.material_count');
+      } else {
+        normalized.material_count = count;
+      }
+    }
+    return normalized;
   });
 
-  if (missing.length > 0) throw new Error(t('parse.missing_fields', { fields: missing.join(', ') }));
-
-  if (keyValues.values.title_candidates !== undefined) {
-    meta.title_candidates = keyValues.values.title_candidates;
+  if (missing.length > 0) {
+    throw new Error(t('parse.missing_fields', { fields: Array.from(new Set(missing)).join(', ') }));
   }
 
   return {
     meta,
-    scenes: sceneResult.scenes,
+    scenes: normalizedScenes,
     output_spec: outputSpec,
     cost_policy: costPolicy,
     narration,
-    unknown_columns: Array.from(new Set([...keyValues.unknownColumns, ...sceneResult.unknownColumns])),
+    constraints: extracted.constraints === undefined ? [] : extracted.constraints,
+    fps_used_for_conversion: fps,
   };
 }
 
-module.exports = {
-  parseDesignDoc,
-  resolveColumn,
-  normalizeKey,
-  loadSynonyms,
-  loadParsingRules,
-  parseNumeric,
-  isSceneTable,
-};
+module.exports = { normalizeDesignDoc, toSeconds, resolveFps, loadDurationUnits, SCENE_REQUIRED, MATERIAL_KINDS };
