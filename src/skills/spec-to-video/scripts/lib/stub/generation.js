@@ -7,29 +7,29 @@
 
 const { createHash } = require('node:crypto');
 
-/** @type {{operation: string, prompt: string, model: string}[]} */
+/** @type {{operation: string, prompt: string, model: string, materialId: string}[]} */
 const calls = [];
 
 /**
  * 生成呼び出しを記録し、決定的な結果を返します。
- * @param {{operation: string, prompt: string, model: string}} request
+ * @param {{operation: string, prompt: string, model: string, materialId: string}} request
  * @returns {{file_path: string, duration_sec: number, stub: true}}
  */
 /**
  * 入力から決まる短い識別子を求めます。実行順に依存しない値にするためです。
- * @param {{operation: string, prompt: string, model: string}} request
+ * @param {{operation: string, prompt: string, model: string, materialId: string}} request
  * @returns {string}
  */
 function digest(request) {
   return createHash('sha256')
-    .update([request.operation, request.prompt, request.model].join('|'))
+    .update([request.operation, request.prompt, request.model, request.materialId].join('|'))
     .digest('hex')
     .slice(0, 12);
 }
 
 /**
  * 生成呼び出しを記録し、入力から決まる結果を返します。
- * @param {{operation: string, prompt: string, model: string}} request
+ * @param {{operation: string, prompt: string, model: string, materialId: string}} request
  * @returns {{file_path: string, duration_sec: number, stub: true}}
  */
 function generate(request) {
@@ -43,7 +43,7 @@ function generate(request) {
 
 /**
  * 記録された呼び出しを返します。
- * @returns {{operation: string, prompt: string, model: string}[]}
+ * @returns {{operation: string, prompt: string, model: string, materialId: string}[]}
  */
 function recordedCalls() {
   return calls.slice();

@@ -54,5 +54,7 @@
   "validate.transition_unknown_kind": "シーン {scene_id} のトランジション種別 {kind} は対応表にありません。",
   "validate.value_unrecorded": "未記録",
   "generate.unit_price_missing": "対象 {kind} の単価が渡されていません。使用モデルの料金表から単価を読み取ってください。",
-  "render.result_invalid": "レンダリングの結果にファイルパスがありません。レンダラーの戻り値を確認してください。"
+  "render.result_invalid": "レンダリングの結果にファイルパスがありません。レンダラーの戻り値を確認してください。",
+  "generate.result_invalid": "生成の結果にファイルパスがありません。素材 {material_id} の生成器の戻り値を確認してください。",
+  "generate.failed": "素材 {material_id} の生成に失敗しました: {reason}"
 }

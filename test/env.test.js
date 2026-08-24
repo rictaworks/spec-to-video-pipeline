@@ -45,29 +45,29 @@ describe('開発環境の分岐', () => {
   test('開発環境ではスタブが用いられ、外部呼び出しが発生しません', () => {
     const environment = { [env.ENV_VAR]: 'development' };
     const result = env.isDevelopment(environment)
-      ? stub.generate({ operation: 'clip', prompt: 'p', model: 'm' })
+      ? stub.generate({ operation: 'clip', prompt: 'p', model: 'm', materialId: 'M1' })
       : null;
     expect(result && result.stub).toBe(true);
     expect(stub.recordedCalls()).toHaveLength(1);
   });
 
   test('スタブは課金対象の実尺を返しません', () => {
-    expect(stub.generate({ operation: 'figure', prompt: 'p', model: 'm' }).duration_sec).toBe(0);
+    expect(stub.generate({ operation: 'figure', prompt: 'p', model: 'm', materialId: 'M1' }).duration_sec).toBe(0);
   });
 });
 
 describe('スタブの決定性', () => {
   test('同じ入力なら常に同じファイル名を返します', () => {
     stub.reset();
-    const first = stub.generate({ operation: 'clip', prompt: 'p', model: 'm' });
-    const second = stub.generate({ operation: 'clip', prompt: 'p', model: 'm' });
+    const first = stub.generate({ operation: 'clip', prompt: 'p', model: 'm', materialId: 'M1' });
+    const second = stub.generate({ operation: 'clip', prompt: 'p', model: 'm', materialId: 'M1' });
     expect(second.file_path).toBe(first.file_path);
   });
 
   test('入力が変われば別のファイル名になります', () => {
     stub.reset();
-    const a = stub.generate({ operation: 'clip', prompt: 'p1', model: 'm' });
-    const b = stub.generate({ operation: 'clip', prompt: 'p2', model: 'm' });
+    const a = stub.generate({ operation: 'clip', prompt: 'p1', model: 'm', materialId: 'M1' });
+    const b = stub.generate({ operation: 'clip', prompt: 'p2', model: 'm', materialId: 'M1' });
     expect(a.file_path).not.toBe(b.file_path);
   });
 });
