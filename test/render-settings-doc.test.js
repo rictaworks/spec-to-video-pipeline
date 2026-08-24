@@ -69,7 +69,7 @@ describe('差し戻しと入口ゲート', () => {
     expect(skill).toContain('実行機の資源が確定していること');
   });
 
-  test('P2 で remotion-project.md の 6 章を読む旨を記しています', () => {
-    expect(skill).toContain('P2（6章のみ）');
+  test('P2 で remotion-project.md の 7 章を読む旨を記しています', () => {
+    expect(skill).toContain('P2（7章のみ）');
   });
 });
