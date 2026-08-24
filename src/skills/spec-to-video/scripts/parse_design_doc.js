@@ -34,7 +34,7 @@ const SCENE_REQUIRED = [
 ];
 const META_REQUIRED = ['repository', 'edition', 'production_mode', 'models'];
 const OUTPUT_REQUIRED = ['resolution', 'fps', 'codec', 'audio'];
-const COST_REQUIRED = ['retry_limit', 'hard_cap'];
+const COST_REQUIRED = ['retry_limit'];
 const NARRATION_REQUIRED = ['engine', 'speaker'];
 
 const MATERIAL_KINDS = ['clip', 'figure', 'title_card'];
@@ -139,14 +139,34 @@ function normalizeDesignDoc(extracted) {
   const outputSpec = pick(extracted.output_spec, OUTPUT_REQUIRED, 'output_spec');
   const costPolicy = pick(extracted.cost_policy, COST_REQUIRED, 'cost_policy');
 
+  const rawCost = extracted.cost_policy === undefined || extracted.cost_policy === null ? {} : extracted.cost_policy;
   ['retry_limit', 'hard_cap'].forEach((field) => {
-    if (costPolicy[field] === undefined) return;
-    const value = Number(costPolicy[field]);
+    const source = costPolicy[field] !== undefined ? costPolicy[field] : rawCost[field];
+    if (source === undefined) return;
+    const value = Number(source);
     if (!Number.isFinite(value) || value < 0) {
-      throw new Error(t('parse.cost_policy_not_numeric', { field, value: String(costPolicy[field]) }));
+      throw new Error(t('parse.cost_policy_not_numeric', { field, value: String(source) }));
     }
     costPolicy[field] = value;
   });
+
+  // 対象ごとの上限です。null は上限を設けないことを表します。
+  if (rawCost.hard_cap_by_kind !== undefined) {
+    /** @type {Record<string, number | null>} */
+    const byKind = {};
+    Object.entries(rawCost.hard_cap_by_kind).forEach(([kind, cap]) => {
+      if (cap === null) {
+        byKind[kind] = null;
+        return;
+      }
+      const value = Number(cap);
+      if (!Number.isFinite(value) || value < 0) {
+        throw new Error(t('parse.cost_policy_not_numeric', { field: 'hard_cap_by_kind.' + kind, value: String(cap) }));
+      }
+      byKind[kind] = value;
+    });
+    costPolicy.hard_cap_by_kind = byKind;
+  }
   const narration = pick(extracted.narration, NARRATION_REQUIRED, 'narration');
 
   if (meta.production_mode !== undefined && !PRODUCTION_MODES.includes(String(meta.production_mode))) {
