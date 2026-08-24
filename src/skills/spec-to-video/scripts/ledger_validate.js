@@ -282,6 +282,86 @@ function validateDirection(transcript, rules) {
 }
 
 /**
+ * 絵コンテから起こしたカットと、設計書側のカットを突き合わせます。
+ * 一致しない場合は、どのカットがどう食い違うかを検出として返します。
+ * どちらが正かはこちらで決めません。
+ * @param {Record<string, any>} transcript 台本台帳
+ * @param {Record<string, any>[]} scenesSpec 設計書側のシーン
+ * @returns {Finding[]}
+ */
+function validateStoryboard(transcript, scenesSpec) {
+  /** @type {Finding[]} */
+  const findings = [];
+  transcript.scenes.forEach((/** @type {Record<string, any>} */ scene) => {
+    const spec = scenesSpec.find(
+      (/** @type {Record<string, any>} */ item) => item.scene_id === scene.scene_id,
+    );
+    if (spec === undefined) return;
+    const specCuts = Array.isArray(spec.cuts) ? spec.cuts : [];
+    const boardCuts = Array.isArray(scene.cuts) ? scene.cuts : [];
+    if (specCuts.length === 0) return;
+
+    if (specCuts.length !== boardCuts.length) {
+      findings.push({
+        code: 'storyboard.cut_count',
+        message: t('validate.storyboard_cut_count', {
+          scene_id: scene.scene_id,
+          spec: specCuts.length,
+          board: boardCuts.length,
+        }),
+      });
+      return;
+    }
+
+    specCuts.forEach((/** @type {Record<string, any>} */ specCut, index) => {
+      const boardCut = boardCuts[index];
+      if (String(specCut.cut_id) !== String(boardCut.cut_id)) {
+        findings.push({
+          code: 'storyboard.cut_id',
+          message: t('validate.storyboard_cut_id', {
+            scene_id: scene.scene_id,
+            spec: String(specCut.cut_id),
+            board: String(boardCut.cut_id),
+          }),
+        });
+        return;
+      }
+      if (
+        specCut.duration_sec !== undefined &&
+        boardCut.duration_sec !== undefined &&
+        Number(specCut.duration_sec) !== Number(boardCut.duration_sec)
+      ) {
+        findings.push({
+          code: 'storyboard.cut_duration',
+          message: t('validate.storyboard_cut_duration', {
+            scene_id: scene.scene_id,
+            cut_id: String(specCut.cut_id),
+            spec: String(specCut.duration_sec),
+            board: String(boardCut.duration_sec),
+          }),
+        });
+      }
+      if (
+        boardCut.material_kind !== undefined &&
+        specCut.material_kind !== undefined &&
+        String(specCut.material_kind) !== String(boardCut.material_kind)
+      ) {
+        findings.push({
+          code: 'storyboard.cut_kind',
+          message: t('validate.storyboard_cut_kind', {
+            scene_id: scene.scene_id,
+            cut_id: String(specCut.cut_id),
+            spec: String(specCut.material_kind),
+            board: String(boardCut.material_kind),
+          }),
+        });
+      }
+    });
+  });
+  return findings;
+}
+
+/**
  * 尺整合を検査します。実尺がシーン尺を超える場合のみ不適合とします。
  * 設計書側に対応するシーンが無い場合も検出します。
  * @param {Record<string, any>} transcript
@@ -398,6 +478,7 @@ function validateAll(input) {
     ...validateContextFree(input.transcript, rules),
     ...validateTransitions(input.transcript, rules),
     ...validateDirection(input.transcript, rules),
+    ...validateStoryboard(input.transcript, scenesSpec),
     ...validateDuration(input.transcript, scenesSpec),
     ...validateCutCount(input.clips, scenesSpec),
     ...validateWording(input.transcript, rules),
@@ -411,6 +492,7 @@ module.exports = {
   validateContextFree,
   validateTransitions,
   validateDirection,
+  validateStoryboard,
   validateDuration,
   validateCutCount,
   validateWording,

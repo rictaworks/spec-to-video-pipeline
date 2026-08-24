@@ -333,3 +333,69 @@ describe('演出の選定', () => {
     expect(validator.validateDirection(withDirection(direction), rules).some((f) => f.code === 'direction.effect_purpose')).toBe(true);
   });
 });
+
+describe('絵コンテと設計書の突き合わせ', () => {
+  /** @returns {any} */
+  function boardTranscript(/** @type {any[]} */ cuts) {
+    const t = baseTranscript();
+    t.scenes[0].cuts = cuts;
+    return t;
+  }
+
+  const SPEC_WITH_CUTS = [
+    {
+      scene_id: 'S1',
+      duration_sec: 8,
+      material_count: 2,
+      cuts: [
+        { cut_id: 'C01', material_kind: 'clip', duration_sec: 4 },
+        { cut_id: 'C02', material_kind: 'figure', duration_sec: 4 },
+      ],
+    },
+  ];
+
+  test('一致していれば検出しません', () => {
+    const cuts = [
+      { cut_id: 'C01', material_kind: 'clip', duration_sec: 4, narration_text: 'あ' },
+      { cut_id: 'C02', material_kind: 'figure', duration_sec: 4, narration_text: 'い' },
+    ];
+    expect(validator.validateStoryboard(boardTranscript(cuts), SPEC_WITH_CUTS)).toEqual([]);
+  });
+
+  test('カット数の食い違いを検出します', () => {
+    const cuts = [{ cut_id: 'C01', material_kind: 'clip', duration_sec: 4 }];
+    const findings = validator.validateStoryboard(boardTranscript(cuts), SPEC_WITH_CUTS);
+    expect(findings[0].code).toBe('storyboard.cut_count');
+  });
+
+  test('カット識別子の食い違いを検出します', () => {
+    const cuts = [
+      { cut_id: 'C01', material_kind: 'clip', duration_sec: 4 },
+      { cut_id: 'C99', material_kind: 'figure', duration_sec: 4 },
+    ];
+    expect(validator.validateStoryboard(boardTranscript(cuts), SPEC_WITH_CUTS).some((f) => f.code === 'storyboard.cut_id')).toBe(true);
+  });
+
+  test('尺の食い違いを検出します', () => {
+    const cuts = [
+      { cut_id: 'C01', material_kind: 'clip', duration_sec: 6 },
+      { cut_id: 'C02', material_kind: 'figure', duration_sec: 4 },
+    ];
+    const findings = validator.validateStoryboard(boardTranscript(cuts), SPEC_WITH_CUTS);
+    expect(findings.some((f) => f.code === 'storyboard.cut_duration')).toBe(true);
+    expect(findings[0].message).toContain('C01');
+  });
+
+  test('素材種別の食い違いを検出します', () => {
+    const cuts = [
+      { cut_id: 'C01', material_kind: 'clip', duration_sec: 4 },
+      { cut_id: 'C02', material_kind: 'clip', duration_sec: 4 },
+    ];
+    expect(validator.validateStoryboard(boardTranscript(cuts), SPEC_WITH_CUTS).some((f) => f.code === 'storyboard.cut_kind')).toBe(true);
+  });
+
+  test('設計書側にカットが無い場合は突き合わせません', () => {
+    const cuts = [{ cut_id: 'C01', material_kind: 'clip', duration_sec: 4 }];
+    expect(validator.validateStoryboard(boardTranscript(cuts), [{ scene_id: 'S1', duration_sec: 8 }])).toEqual([]);
+  });
+});
