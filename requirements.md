@@ -151,14 +151,14 @@ graph TD
 | constraints | items[] | 必須 | 構成要件。機械検査対象と目視審査対象に分類して保持する |
 | scenes[] | scene_id | 必須 | シーン識別子 |
 | scenes[] | duration_sec | 必須 | シーン尺 |
-| scenes[] | material_kind | 必須 | `clip` / `figure` / `title_card` |
-| scenes[] | material_count | 必須 | 設計書が指定するカット数 |
+| scenes[] | cuts[] | 必須 | カットの一覧。カットごとに識別子・素材種別（`clip` / `figure` / `title_card`）・尺を持つ。1つのシーンに複数の素材種別が混在してよい |
+| scenes[] | material_count | 必須 | 設計書が指定するカット数。`cuts[]` の件数と一致すること |
 | scenes[] | visual | 必須 | 映像内容の記述 |
 | scenes[] | subtitles[] | 必須 | 字幕行 |
 | scenes[] | narration_policy | 必須 | ナレーション方針 |
 | scenes[] | intentional_luminance_change | 必須 | 意図的な輝度・色変化を含むか |
 | output_spec | resolution / fps / codec / audio | 必須 | 出力規格 |
-| cost_policy | retry_limit / hard_cap | 必須 | カット単位のリトライ上限と課金上限 |
+| cost_policy | retry_limit / hard_cap | 必須 | カット単位のリトライ上限と課金上限。いずれも数値とする（通貨単位は設計書の記載に従う） |
 | narration | engine / speaker | 必須 | 合成エンジンと話者 |
 
 ### 8.2 中間成果物：台帳

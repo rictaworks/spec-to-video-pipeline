@@ -25,8 +25,8 @@
 | constraints | items[] | 必須 | 構成要件です。機械検査対象と目視審査対象に分類して保持します |
 | scenes[] | scene_id | 必須 | シーン識別子です |
 | scenes[] | duration_sec | 必須 | シーン尺です |
-| scenes[] | material_kind | 必須 | `clip` / `figure` / `title_card` のいずれかです |
-| scenes[] | material_count | 必須 | 設計書が指定するカット数です |
+| scenes[] | cuts[] | 必須 | カットの一覧です。カットごとに `cut_id`・`material_kind`（`clip` / `figure` / `title_card`）・`duration_sec` を持ちます |
+| scenes[] | material_count | 必須 | 設計書が指定するカット数です。`cuts[]` の件数と一致する必要があります |
 | scenes[] | visual | 必須 | 映像内容の記述です |
 | scenes[] | subtitles[] | 必須 | 字幕行です |
 | scenes[] | narration_policy | 必須 | ナレーション方針です |
@@ -103,3 +103,20 @@
 6. 正規化結果を台本台帳（`data/transcript.json`）と素材台帳（`data/clips.json`）の初期状態として書き出します
 
 台帳の構造は `assets/transcript.schema.json` と `assets/clips.schema.json` が正です。
+
+## 5. 素材種別はカット単位で持ちます
+
+1つのシーンに複数の素材種別が混在する設計書があります。次のような構成です。
+
+| シーン | 素材構成 |
+|---|---|
+| S4 | 図解1枚（6秒）＋クリップ1本（8秒） |
+| S5 | クリップ2本（16秒）＋図解1枚（6秒） |
+
+**シーンの代表値へ丸めません。** カットごとに素材種別と尺を持たせます。カット割りが別表になっている設計書では、その表からカットを起こします。
+
+`material_count` は `cuts[]` の件数と一致させます。食い違う場合は停止します。設計書側の記載と読み取りのどちらが誤っているかを、こちらで決めないためです。
+
+## 6. コスト方針は数値で読み取ります
+
+`cost_policy.retry_limit` と `cost_policy.hard_cap` は数値です。設計書が「上限を設定する」とだけ書き金額を示していない場合、方針の文をそのまま入れず、**欠損として停止**し、設計書側の追記を求めます。生成主体モードでは上限額が実際の課金に直結します。
