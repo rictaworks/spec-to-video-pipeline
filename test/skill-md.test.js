@@ -47,8 +47,8 @@ describe('工程の記載', () => {
     },
   );
 
-  test('決定木と工程フローの2つの図を含みます', () => {
-    expect(source.match(/```mermaid/g)).toHaveLength(2);
+  test('決定木・工程フロー・出力先の確定の3つの図を含みます', () => {
+    expect(source.match(/```mermaid/g)).toHaveLength(3);
   });
 });
 
