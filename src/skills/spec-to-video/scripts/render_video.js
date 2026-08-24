@@ -10,7 +10,7 @@ const { t } = require('./lib/strings.js');
 const OUTPUT_REQUIRED = ['resolution', 'fps', 'codec', 'audio'];
 
 /**
- * @typedef {{render: (input: {outputPath: string, spec: Record<string, any>, materials: Record<string, any>[]}) => {file_path: string}}} Renderer
+ * @typedef {{render: (input: {outputPath: string, spec: Record<string, any>, materials: Record<string, any>[]}) => {file_path: string} | Promise<{file_path: string}>}} Renderer
  */
 
 /**
@@ -25,11 +25,11 @@ function assertOutputSpec(spec) {
 }
 
 /**
- * レンダリングを実行します。
+ * レンダリングを実行します。レンダラーが Promise を返す場合は完了を待ちます。
  * @param {{outputSpec: Record<string, any>, materials: Record<string, any>[], costLog: Record<string, any>[], renderCount: number, outputPath: string, renderer: Renderer}} input
- * @returns {{file_path: string, render_count: number}}
+ * @returns {Promise<{file_path: string, render_count: number}>}
  */
-function renderVideo(input) {
+async function renderVideo(input) {
   assertOutputSpec(input.outputSpec);
   const adopted = input.materials.filter((material) => material.adopted === true);
   if (adopted.length === 0) {
@@ -39,11 +39,16 @@ function renderVideo(input) {
   if (unresolved.length > 0) {
     throw new Error(t('render.material_file_missing', { ids: unresolved.map((m) => m.material_id).join(', ') }));
   }
-  const result = input.renderer.render({
+  // レンダラーは Promise を返すことがあります（Remotion の renderMedia など）。
+  // 完了を待たずに戻ると、書き出し前に工程が終わったように見えます。
+  const result = await input.renderer.render({
     outputPath: input.outputPath,
     spec: input.outputSpec,
     materials: adopted,
   });
+  if (result === null || result === undefined || typeof result.file_path !== 'string') {
+    throw new Error(t('render.result_invalid'));
+  }
   return { file_path: result.file_path, render_count: input.renderCount + 1 };
 }
 
