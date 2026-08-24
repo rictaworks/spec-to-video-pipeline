@@ -56,7 +56,7 @@ graph TD
 | `references/cost-and-credentials.md` | P2・P8〜P10・P12 |
 | `references/mode-generative.md` | P8〜P10（`production_mode` が `generative` のとき） |
 | `references/mode-remotion-only.md` | P8〜P10（`production_mode` が `remotion_only` のとき） |
-| `references/remotion-project.md` | P7・P11・P12 |
+| `references/remotion-project.md` | P2（6章のみ）・P7・P11・P12 |
 | `references/compliance-review.md` | P13・P14 |
 
 **モード別の2ファイルは、正規化した `production_mode` に応じて一方のみを読み込みます。**
@@ -66,7 +66,7 @@ graph TD
 | 工程 | 名称 | 入口ゲート | 実行 |
 |---|---|---|---|
 | P1 | 設計書の受理と正規化 | 設計書が読み取れること | **判断**（読み取り）＋`scripts/parse_design_doc.js`（検査） |
-| P2 | 前提ゲート | 環境・ライセンス・資格情報・上限が確定していること | 判断（`cost-and-credentials.md`） |
+| P2 | 前提ゲート | 環境・ライセンス・資格情報・上限・実行機の資源が確定していること | 判断（`cost-and-credentials.md`・`remotion-project.md` 6章） |
 | P3 | 台本と文言の確定 | 正規化が完了していること | 判断（絵コンテがある場合は `references/storyboard.md`） |
 | P4 | ナレーション合成と実尺計測 | 台本が校正済みであること | `scripts/synthesize_narration.js` |
 | P5 | 尺整合ゲート | 実尺が計測済みであること | `scripts/ledger_validate.js` |
@@ -185,6 +185,7 @@ flowchart TD
 | 素材が合成側で読めない | 合成規格へそろっていない | P11 | 変換のみ |
 | 図解内の文言 | 誤字・文字の崩れ | P3 で文言を確定し直し、P10 | 再生成 |
 | 全編にわたる規格不一致 | 出力設定 | P12 | レンダのみ |
+| 復号が止まる・健全な素材が読めない | 実行環境の資源不足 | P12（設定の見直し） | レンダのみ |
 | シーン尺・字幕文言に起因 | 設計そのもの | P3（設計書の修正が必要です） | なし |
 
 差し戻し時、素材台帳の採用済み素材は保持し、対象素材のみを再生成の対象とします。
