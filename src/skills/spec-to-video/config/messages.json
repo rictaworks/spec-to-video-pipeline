@@ -48,5 +48,9 @@
   "parse.unknown_production_mode": "制作モード {value} は対応していません。generative または remotion_only のいずれかを読み取ってください。",
   "parse.unknown_material_kind": "シーン {scene_id} の素材種別 {value} は対応していません。clip / figure / title_card のいずれかへ対応づけてください。",
   "parse.cut_count_mismatch": "シーン {scene_id} のカット数の指定 {declared} と、カット一覧の件数 {actual} が一致しません。",
-  "parse.cost_policy_not_numeric": "コスト方針の {field} が数値ではありません: {value}。金額または回数を数値で読み取ってください。"
+  "parse.cost_policy_not_numeric": "コスト方針の {field} が数値ではありません: {value}。金額または回数を数値で読み取ってください。",
+  "validate.storyboard_cut_count": "シーン {scene_id} のカット数が、設計書 {spec} と絵コンテ {board} で一致しません。",
+  "validate.storyboard_cut_id": "シーン {scene_id} のカット識別子が、設計書 {spec} と絵コンテ {board} で一致しません。",
+  "validate.storyboard_cut_duration": "シーン {scene_id} のカット {cut_id} の尺が、設計書 {spec} 秒と絵コンテ {board} 秒で一致しません。",
+  "validate.storyboard_cut_kind": "シーン {scene_id} のカット {cut_id} の素材種別が、設計書 {spec} と絵コンテ {board} で一致しません。"
 }

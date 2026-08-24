@@ -51,6 +51,7 @@ graph TD
 | ファイル | 読む工程 |
 |---|---|
 | `references/design-doc-schema.md` | P1 |
+| `references/storyboard.md` | P3・P7（絵コンテが存在する場合） |
 | `references/narration-subtitles.md` | P4・P6 |
 | `references/cost-and-credentials.md` | P2・P8〜P10・P12 |
 | `references/mode-generative.md` | P8〜P10（`production_mode` が `generative` のとき） |
@@ -66,7 +67,7 @@ graph TD
 |---|---|---|---|
 | P1 | 設計書の受理と正規化 | 設計書が読み取れること | **判断**（読み取り）＋`scripts/parse_design_doc.js`（検査） |
 | P2 | 前提ゲート | 環境・ライセンス・資格情報・上限が確定していること | 判断（`cost-and-credentials.md`） |
-| P3 | 台本と文言の確定 | 正規化が完了していること | 判断 |
+| P3 | 台本と文言の確定 | 正規化が完了していること | 判断（絵コンテがある場合は `references/storyboard.md`） |
 | P4 | ナレーション合成と実尺計測 | 台本が校正済みであること | `scripts/synthesize_narration.js` |
 | P5 | 尺整合ゲート | 実尺が計測済みであること | `scripts/ledger_validate.js` |
 | P6 | 字幕生成と可読検査 | 尺整合が成立していること | `scripts/build_subtitles.js` |
@@ -116,6 +117,17 @@ flowchart TD
     P15 --> P9
     P15 --> P3
 ```
+
+## 絵コンテがある場合
+
+絵コンテは、設計書が定めた構成をカット単位の具体まで落とした資料です。**存在する場合は P3 と P7 の入力として読みます。**
+
+- 読み取る項目と台帳への対応、突き合わせの手順は `references/storyboard.md` にあります
+- 形式は案件ごとに異なります。決まった見出しや表の形を前提にしません
+- カット数・識別子・尺・素材種別が設計書と一致することを確認します
+- **設計書と絵コンテで指示が矛盾する場合は停止し、確認を求めます。** 新しい方・詳しい方を自動的に採りません
+
+絵コンテが無い案件では、P3 で台本と文言をこちらで起こします。不在は停止の理由になりません。
 
 ## トランジションの選定（P7）
 
