@@ -6,6 +6,7 @@
  */
 
 const { t } = require('./lib/strings.js');
+const { assertNormalized } = require('./normalize_materials.js');
 
 const OUTPUT_REQUIRED = ['resolution', 'fps', 'codec', 'audio'];
 
@@ -39,6 +40,9 @@ async function renderVideo(input) {
   if (unresolved.length > 0) {
     throw new Error(t('render.material_file_missing', { ids: unresolved.map((m) => m.material_id).join(', ') }));
   }
+  // そろえていない素材を合成へ渡すと、素材は壊れていないのに読めず、
+  // 作り直しという誤った対処へ進みます。ここで止めます。
+  assertNormalized(/** @type {any[]} */ (adopted));
   // レンダラーは Promise を返すことがあります（Remotion の renderMedia など）。
   // 完了を待たずに戻ると、書き出し前に工程が終わったように見えます。
   const result = await input.renderer.render({

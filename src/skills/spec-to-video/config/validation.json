@@ -68,5 +68,15 @@
       "multi_outline",
       "plain"
     ]
+  },
+  "normalization": {
+    "target_kinds": [
+      "clip"
+    ],
+    "constant_frame_rate": true,
+    "all_keyframes": true,
+    "silent_audio_track": true,
+    "index_at_head": true,
+    "keep_source": true
   }
 }

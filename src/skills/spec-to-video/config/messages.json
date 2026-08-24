@@ -56,5 +56,11 @@
   "generate.unit_price_missing": "対象 {kind} の単価が渡されていません。使用モデルの料金表から単価を読み取ってください。",
   "render.result_invalid": "レンダリングの結果にファイルパスがありません。レンダラーの戻り値を確認してください。",
   "generate.result_invalid": "生成の結果にファイルパスがありません。素材 {material_id} の生成器の戻り値を確認してください。",
-  "generate.failed": "素材 {material_id} の生成に失敗しました: {reason}"
+  "generate.failed": "素材 {material_id} の生成に失敗しました: {reason}",
+  "normalize.rules_missing": "そろえる条件が設定されていません。config/validation.json の normalization を確認してください。",
+  "normalize.no_normalizer": "素材をそろえる手段が設定されていません。本番環境では変換器が必要です。",
+  "normalize.fps_missing": "出力規格にフレームレートがありません。そろえる先を決められません。",
+  "normalize.file_missing": "素材 {material_id} にファイルパスがありません。そろえる対象を特定できません。",
+  "normalize.result_invalid": "素材 {material_id} をそろえた結果にファイルパスがありません。変換器の戻り値を確認してください。",
+  "normalize.not_normalized": "合成規格へそろえていない素材があります: {ids}"
 }
