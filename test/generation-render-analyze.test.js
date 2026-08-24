@@ -14,45 +14,45 @@ function materials() {
 }
 
 describe('生成の窓口', () => {
-  test('承認が無い場合は生成を開始しません', () => {
-    expect(() =>
+  test('承認が無い場合は生成を開始しません', async () => {
+    await expect(
       generateAssets({ materials: materials(), costLog: [], costPolicy: POLICY, unitPrice: 10, approved: false, environment: DEV }),
-    ).toThrow();
+    ).rejects.toThrow();
   });
 
-  test('承認があれば生成し、課金ログへ記録します', () => {
-    const result = generateAssets({ materials: materials(), costLog: [], costPolicy: POLICY, unitPrice: 10, approved: true, environment: DEV });
+  test('承認があれば生成し、課金ログへ記録します', async () => {
+    const result = await generateAssets({ materials: materials(), costLog: [], costPolicy: POLICY, unitPrice: 10, approved: true, environment: DEV });
     expect(result.costLog).toHaveLength(2);
     expect(result.materials[0].generation_count).toBe(1);
   });
 
-  test('採用済みの素材は再生成しません', () => {
+  test('採用済みの素材は再生成しません', async () => {
     const input = materials();
     input[0].adopted = true;
-    const result = generateAssets({ materials: input, costLog: [], costPolicy: POLICY, unitPrice: 10, approved: true, environment: DEV });
+    const result = await generateAssets({ materials: input, costLog: [], costPolicy: POLICY, unitPrice: 10, approved: true, environment: DEV });
     expect(result.materials[0].generation_count).toBe(0);
     expect(result.costLog).toHaveLength(1);
   });
 
-  test('リトライ上限に達した素材は保留し、他を続行します', () => {
+  test('リトライ上限に達した素材は保留し、他を続行します', async () => {
     const input = materials();
     input[0].generation_count = 2;
-    const result = generateAssets({ materials: input, costLog: [], costPolicy: POLICY, unitPrice: 10, approved: true, environment: DEV });
+    const result = await generateAssets({ materials: input, costLog: [], costPolicy: POLICY, unitPrice: 10, approved: true, environment: DEV });
     expect(result.held).toEqual(['M1']);
     expect(result.materials[1].generation_count).toBe(1);
     expect(result.stopped_by).toBe('retry_limit');
   });
 
-  test('ハードキャップに達したら全生成を停止します', () => {
-    const result = generateAssets({ materials: materials(), costLog: [], costPolicy: { retry_limit: 5, hard_cap: 10 }, unitPrice: 10, approved: true, environment: DEV });
+  test('ハードキャップに達したら全生成を停止します', async () => {
+    const result = await generateAssets({ materials: materials(), costLog: [], costPolicy: { retry_limit: 5, hard_cap: 10 }, unitPrice: 10, approved: true, environment: DEV });
     expect(result.stopped_by).toBe('hard_cap');
     expect(result.materials[1].generation_count).toBe(0);
   });
 
-  test('本番環境で実行手段が無い場合は停止します', () => {
-    expect(() =>
+  test('本番環境で実行手段が無い場合は停止します', async () => {
+    await expect(
       generateAssets({ materials: materials(), costLog: [], costPolicy: POLICY, unitPrice: 10, approved: true, environment: { SPEC_TO_VIDEO_ENV: 'production' } }),
-    ).toThrow();
+    ).rejects.toThrow();
   });
 
   test('見積もりは単価と点数とリテイク係数の積です', () => {
@@ -164,8 +164,8 @@ describe('フレーム解析', () => {
 });
 
 describe('ハードキャップの事前停止', () => {
-  test('上限を超える生成は実行しません', () => {
-    const result = generateAssets({
+  test('上限を超える生成は実行しません', async () => {
+    const result = await generateAssets({
       materials: materials(),
       costLog: [],
       costPolicy: { retry_limit: 5, hard_cap: 15 },
@@ -177,8 +177,8 @@ describe('ハードキャップの事前停止', () => {
     expect(result.stopped_by).toBe('hard_cap');
   });
 
-  test('上限に収まる範囲では生成します', () => {
-    const result = generateAssets({
+  test('上限に収まる範囲では生成します', async () => {
+    const result = await generateAssets({
       materials: materials(),
       costLog: [],
       costPolicy: { retry_limit: 5, hard_cap: 20 },
@@ -219,8 +219,8 @@ describe('対象ごとの課金上限', () => {
     expect(() => resolveUnitPrice(UNIT_PRICE, 'still_seed')).toThrow();
   });
 
-  test('クリップだけ上限に達した場合、図解の生成は続きます', () => {
-    const result = generateAssets({
+  test('クリップだけ上限に達した場合、図解の生成は続きます', async () => {
+    const result = await generateAssets({
       materials: mixed(),
       costLog: [],
       costPolicy: { retry_limit: 3, hard_cap_by_kind: { clip: 0.5, figure: null } },
@@ -234,8 +234,8 @@ describe('対象ごとの課金上限', () => {
     expect(result.stopped_by).toBe('hard_cap_by_kind');
   });
 
-  test('上限を設けない対象は数量に関わらず生成します', () => {
-    const result = generateAssets({
+  test('上限を設けない対象は数量に関わらず生成します', async () => {
+    const result = await generateAssets({
       materials: mixed(),
       costLog: [],
       costPolicy: { retry_limit: 3, hard_cap_by_kind: { clip: 10, figure: null } },
@@ -247,8 +247,8 @@ describe('対象ごとの課金上限', () => {
     expect(result.stopped_by).toBeNull();
   });
 
-  test('全体上限が先に到達した場合はすべて停止します', () => {
-    const result = generateAssets({
+  test('全体上限が先に到達した場合はすべて停止します', async () => {
+    const result = await generateAssets({
       materials: mixed(),
       costLog: [],
       costPolicy: { retry_limit: 3, hard_cap: 0.5, hard_cap_by_kind: { clip: 10, figure: null } },
@@ -321,5 +321,102 @@ describe('非同期のレンダラー', () => {
         renderer,
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe('非同期の生成器', () => {
+  const POLICY_ASYNC = { retry_limit: 2, hard_cap: 100 };
+
+  /** @returns {any[]} */
+  function one() {
+    return [
+      { material_id: 'M1', scene_id: 'S1', order: 0, kind: 'clip', adopted: false, generation_count: 0, prompt: 'p', model_name: 'veo' },
+      { material_id: 'M2', scene_id: 'S1', order: 1, kind: 'clip', adopted: false, generation_count: 0, prompt: 'p', model_name: 'veo' },
+    ];
+  }
+
+  const PROD = { SPEC_TO_VIDEO_ENV: 'production' };
+
+  test('Promise を返す生成器の完了を待ちます', async () => {
+    const generator = {
+      generate: (/** @type {any} */ request) =>
+        new Promise((resolve) => {
+          setTimeout(() => resolve({ file_path: `out/${request.materialId}.mp4`, duration_sec: 8 }), 5);
+        }),
+    };
+    const result = await generateAssets({
+      materials: one(), costLog: [], costPolicy: POLICY_ASYNC, unitPrice: 1,
+      approved: true, generator, environment: PROD,
+    });
+    expect(result.materials[0].file_path).toBe('out/M1.mp4');
+    expect(result.materials[1].file_path).toBe('out/M2.mp4');
+    expect(result.materials[0].duration_sec).toBe(8);
+  });
+
+  test('生成器へ素材識別子を渡します', async () => {
+    /** @type {any[]} */
+    const seen = [];
+    const generator = {
+      generate: async (/** @type {any} */ request) => {
+        seen.push(request);
+        return { file_path: 'out/x.mp4', duration_sec: 0 };
+      },
+    };
+    await generateAssets({
+      materials: one(), costLog: [], costPolicy: POLICY_ASYNC, unitPrice: 1,
+      approved: true, generator, environment: PROD,
+    });
+    expect(seen.map((r) => r.materialId)).toEqual(['M1', 'M2']);
+  });
+
+  test('同期の生成器も従来どおり動作します', async () => {
+    const generator = {
+      generate: (/** @type {any} */ request) => ({ file_path: `out/${request.materialId}.png`, duration_sec: 0 }),
+    };
+    const result = await generateAssets({
+      materials: one(), costLog: [], costPolicy: POLICY_ASYNC, unitPrice: 1,
+      approved: true, generator, environment: PROD,
+    });
+    expect(result.materials[0].file_path).toBe('out/M1.png');
+    expect(result.costLog).toHaveLength(2);
+  });
+
+  test('ファイルパスを返さない生成器は停止します', async () => {
+    const generator = { generate: async () => ({ duration_sec: 0 }) };
+    await expect(
+      generateAssets({
+        materials: one(), costLog: [], costPolicy: POLICY_ASYNC, unitPrice: 1,
+        approved: true, generator: /** @type {any} */ (generator), environment: PROD,
+      }),
+    ).rejects.toThrow();
+  });
+
+  test('生成に失敗した素材は保留し、他の素材は続けます', async () => {
+    const generator = {
+      generate: async (/** @type {any} */ request) => {
+        if (request.materialId === 'M1') throw new Error('接続できません');
+        return { file_path: 'out/M2.mp4', duration_sec: 8 };
+      },
+    };
+    const result = await generateAssets({
+      materials: one(), costLog: [], costPolicy: POLICY_ASYNC, unitPrice: 1,
+      approved: true, generator, environment: PROD,
+    });
+    expect(result.materials[0].file_path).toBeUndefined();
+    expect(result.materials[0].generation_count).toBe(1);
+    expect(result.materials[1].file_path).toBe('out/M2.mp4');
+    expect(result.costLog).toHaveLength(1);
+    expect(result.stopped_by).toBe('generation_failed');
+    expect(result.failed.map((/** @type {any} */ f) => f.material_id)).toEqual(['M1']);
+  });
+
+  test('失敗した素材に課金を計上しません', async () => {
+    const generator = { generate: async () => { throw new Error('失敗'); } };
+    const result = await generateAssets({
+      materials: one(), costLog: [], costPolicy: POLICY_ASYNC, unitPrice: 1,
+      approved: true, generator, environment: PROD,
+    });
+    expect(result.costLog).toHaveLength(0);
+    expect(totalCost(result.costLog)).toBe(0);
   });
 });

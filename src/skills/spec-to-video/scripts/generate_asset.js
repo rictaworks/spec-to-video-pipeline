@@ -13,7 +13,7 @@ const stub = require('./lib/stub/generation.js');
 /**
  * @typedef {{material_id: string, scene_id: string, order: number, kind: string, prompt?: string, model_name?: string, generation_count: number, adopted: boolean, file_path?: string, duration_sec?: number, source_still_id?: string}} Material
  * @typedef {{material_id: string, operation: string, model_name: string, generation_count: number, estimated_cost: number}} CostEntry
- * @typedef {{generate: (request: {operation: string, prompt: string, model: string}) => {file_path: string, duration_sec: number}}} Generator
+ * @typedef {{generate: (request: {operation: string, prompt: string, model: string, materialId: string}) => ({file_path: string, duration_sec: number} | Promise<{file_path: string, duration_sec: number}>)}} Generator
  */
 
 /**
@@ -80,9 +80,9 @@ function resolveKindCap(costPolicy, kind) {
 /**
  * 素材を生成します。承認・上限・冪等性をここで判定します。
  * @param {{materials: Material[], costLog: CostEntry[], costPolicy: {retry_limit: number, hard_cap?: number, hard_cap_by_kind?: Record<string, number | null>}, unitPrice: number | Record<string, number>, approved: boolean, generator?: Generator, environment?: NodeJS.ProcessEnv}} input
- * @returns {{materials: Material[], costLog: CostEntry[], stopped_by: string | null, held: string[], stopped_kinds: string[]}}
+ * @returns {Promise<{materials: Material[], costLog: CostEntry[], stopped_by: string | null, held: string[], stopped_kinds: string[], failed: {material_id: string, reason: string}[]}>}
  */
-function generateAssets(input) {
+async function generateAssets(input) {
   if (input.approved !== true) {
     throw new Error(t('generate.not_approved'));
   }
@@ -97,6 +97,8 @@ function generateAssets(input) {
   const costLog = JSON.parse(JSON.stringify(input.costLog));
   /** @type {string[]} */
   const held = [];
+  /** @type {{material_id: string, reason: string}[]} */
+  const failed = [];
   /** @type {string | null} */
   let stoppedBy = null;
 
@@ -134,11 +136,29 @@ function generateAssets(input) {
       held.push(material.material_id);
       continue;
     }
-    const result = generator.generate({
-      operation: material.kind,
-      prompt: String(material.prompt || ''),
-      model: String(material.model_name || ''),
-    });
+    // 生成器は Promise を返すことがあります。完了を待たずに戻ると、生成していないのに
+    // 採用済みの素材と課金だけが台帳へ積まれます。
+    /** @type {{file_path: string, duration_sec: number} | undefined} */
+    let result;
+    try {
+      result = await generator.generate({
+        operation: material.kind,
+        prompt: String(material.prompt || ''),
+        model: String(material.model_name || ''),
+        materialId: material.material_id,
+      });
+    } catch (error) {
+      // 失敗しても回数は消費します。他の素材は続けます。
+      material.generation_count += 1;
+      failed.push({
+        material_id: material.material_id,
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      continue;
+    }
+    if (result === null || result === undefined || typeof result.file_path !== 'string') {
+      throw new Error(t('generate.result_invalid', { material_id: material.material_id }));
+    }
     material.generation_count += 1;
     material.file_path = result.file_path;
     material.duration_sec = result.duration_sec;
@@ -157,7 +177,10 @@ function generateAssets(input) {
   if (stoppedBy === null && held.length > 0) {
     stoppedBy = 'retry_limit';
   }
-  return { materials, costLog, stopped_by: stoppedBy, held, stopped_kinds: stoppedKinds };
+  if (stoppedBy === null && failed.length > 0) {
+    stoppedBy = 'generation_failed';
+  }
+  return { materials, costLog, stopped_by: stoppedBy, held, stopped_kinds: stoppedKinds, failed };
 }
 
 module.exports = {
