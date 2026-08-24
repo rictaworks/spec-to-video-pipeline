@@ -11,6 +11,11 @@ function baseTranscript() {
         narration_text: '導入を読みます',
         figure_text: [],
         measured_narration_sec: 6,
+        direction: {
+          motion_easing: 'ease',
+          blend_mode: 'normal',
+          telop_pattern: 'multi_outline',
+        },
       },
     ],
   };
@@ -198,5 +203,133 @@ describe('表示時間の判定基準', () => {
       subtitleThrew = true;
     }
     expect(ledgerFindings.some((f) => f.code === 'subtitle.display')).toBe(subtitleThrew);
+  });
+});
+
+describe('トランジションの選定', () => {
+  const rules = validator.loadRules();
+
+  /** @returns {any} */
+  function transcriptWithCuts(/** @type {any} */ transitions = undefined) {
+    const t = baseTranscript();
+    t.scenes[0].cuts = [{ cut_id: 'C1', narration_text: 'あ' }, { cut_id: 'C2', narration_text: 'い' }];
+    if (transitions !== undefined) t.scenes[0].transitions = transitions;
+    return t;
+  }
+
+  test('選定が無いカットを検出します', () => {
+    const findings = validator.validateTransitions(transcriptWithCuts(), rules);
+    expect(findings.filter((f) => f.code === 'transition.missing')).toHaveLength(2);
+  });
+
+  test('選定済みなら検出しません', () => {
+    const transitions = [
+      { at_cut_id: 'C1', kind: 'cut', duration_sec: 0, reason: '冒頭のため遷移を置きません' },
+      { at_cut_id: 'C2', kind: 'cross_dissolve', duration_sec: 0.4, reason: '同一シーン内のカット送りです' },
+    ];
+    expect(validator.validateTransitions(transcriptWithCuts(transitions), rules)).toEqual([]);
+  });
+
+  test('対応表に無い種類を検出します', () => {
+    const transitions = [
+      { at_cut_id: 'C1', kind: 'cut', duration_sec: 0, reason: '冒頭です' },
+      { at_cut_id: 'C2', kind: 'iris_round', duration_sec: 0.4, reason: '演出です' },
+    ];
+    expect(validator.validateTransitions(transcriptWithCuts(transitions), rules).some((f) => f.code === 'transition.kind')).toBe(true);
+  });
+
+  test('選定理由が無い場合を検出します', () => {
+    const transitions = [
+      { at_cut_id: 'C1', kind: 'cut', duration_sec: 0, reason: '冒頭です' },
+      { at_cut_id: 'C2', kind: 'cross_dissolve', duration_sec: 0.4, reason: '' },
+    ];
+    expect(validator.validateTransitions(transcriptWithCuts(transitions), rules).some((f) => f.code === 'transition.reason')).toBe(true);
+  });
+
+  test('輝度が急激に変わる遷移の連続を検出します', () => {
+    const transitions = [
+      { at_cut_id: 'C1', kind: 'dip_to_black', duration_sec: 0.6, reason: '章の区切りです' },
+      { at_cut_id: 'C2', kind: 'dip_to_white', duration_sec: 0.6, reason: '回想へ移ります' },
+    ];
+    expect(validator.validateTransitions(transcriptWithCuts(transitions), rules).some((f) => f.code === 'transition.consecutive_luminance')).toBe(true);
+  });
+
+  test('種類が上限を超える場合を検出します', () => {
+    const t = baseTranscript();
+    t.scenes[0].cuts = [{ cut_id: 'C1' }, { cut_id: 'C2' }, { cut_id: 'C3' }, { cut_id: 'C4' }];
+    t.scenes[0].transitions = [
+      { at_cut_id: 'C1', kind: 'cut', duration_sec: 0, reason: 'r' },
+      { at_cut_id: 'C2', kind: 'cross_dissolve', duration_sec: 0.4, reason: 'r' },
+      { at_cut_id: 'C3', kind: 'dip_to_black', duration_sec: 0.6, reason: 'r' },
+      { at_cut_id: 'C4', kind: 'dip_to_white', duration_sec: 0.6, reason: 'r' },
+    ];
+    expect(validator.validateTransitions(t, rules).some((f) => f.code === 'transition.kinds_count')).toBe(true);
+  });
+});
+
+describe('演出の選定', () => {
+  const rules = validator.loadRules();
+
+  /** @returns {any} */
+  function withDirection(/** @type {any} */ direction = undefined) {
+    const t = baseTranscript();
+    if (direction === undefined) {
+      delete t.scenes[0].direction;
+      return t;
+    }
+    t.scenes[0].direction = direction;
+    return t;
+  }
+
+  test('演出が未選定のシーンを検出します', () => {
+    expect(validator.validateDirection(withDirection(), rules)[0].code).toBe('direction.missing');
+  });
+
+  test('既定の選定なら検出しません', () => {
+    const direction = {
+      motion_easing: 'ease',
+      blend_mode: 'normal',
+      telop_pattern: 'multi_outline',
+      color_note: '設計書の配色指定に従いました',
+    };
+    expect(validator.validateDirection(withDirection(direction), rules)).toEqual([]);
+  });
+
+  test('対応表に無い値を検出します', () => {
+    const direction = {
+      motion_easing: 'bounce',
+      blend_mode: 'normal',
+      telop_pattern: 'multi_outline',
+    };
+    expect(validator.validateDirection(withDirection(direction), rules).some((f) => f.code === 'direction.value')).toBe(true);
+  });
+
+  test('輝度が上がる描画モードは理由が必要です', () => {
+    const direction = {
+      motion_easing: 'ease',
+      blend_mode: 'screen',
+      telop_pattern: 'multi_outline',
+    };
+    expect(validator.validateDirection(withDirection(direction), rules).some((f) => f.code === 'direction.blend_reason')).toBe(true);
+  });
+
+  test('理由があれば通ります', () => {
+    const direction = {
+      motion_easing: 'ease',
+      blend_mode: 'screen',
+      telop_pattern: 'multi_outline',
+      blend_reason: '設計書が光の演出を指定しているためです',
+    };
+    expect(validator.validateDirection(withDirection(direction), rules)).toEqual([]);
+  });
+
+  test('エフェクトには使う目的が必要です', () => {
+    const direction = {
+      motion_easing: 'ease',
+      blend_mode: 'normal',
+      telop_pattern: 'multi_outline',
+      effects: [{ name: 'blur', purpose: '' }],
+    };
+    expect(validator.validateDirection(withDirection(direction), rules).some((f) => f.code === 'direction.effect_purpose')).toBe(true);
   });
 });

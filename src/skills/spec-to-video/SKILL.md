@@ -55,7 +55,7 @@ graph TD
 | `references/cost-and-credentials.md` | P2・P8〜P10・P12 |
 | `references/mode-generative.md` | P8〜P10（`production_mode` が `generative` のとき） |
 | `references/mode-remotion-only.md` | P8〜P10（`production_mode` が `remotion_only` のとき） |
-| `references/remotion-project.md` | P11・P12 |
+| `references/remotion-project.md` | P7・P11・P12 |
 | `references/compliance-review.md` | P13・P14 |
 
 **モード別の2ファイルは、正規化した `production_mode` に応じて一方のみを読み込みます。**
@@ -70,11 +70,11 @@ graph TD
 | P4 | ナレーション合成と実尺計測 | 台本が校正済みであること | `scripts/synthesize_narration.js` |
 | P5 | 尺整合ゲート | 実尺が計測済みであること | `scripts/ledger_validate.js` |
 | P6 | 字幕生成と可読検査 | 尺整合が成立していること | `scripts/build_subtitles.js` |
-| P7 | カット割り | 許容クリップ長が台帳に登録されていること | 判断＋`ledger_validate.js` |
+| P7 | カット割りとトランジションの選定 | 許容クリップ長が台帳に登録されていること | 判断＋`ledger_validate.js` |
 | P8 | 起点画像の生成と採否 | カット割りが確定していること | `scripts/generate_asset.js`（承認ゲート） |
 | P9 | クリップの生成と採否 | 起点画像が採用済みであること | `scripts/generate_asset.js`（承認ゲート） |
 | P10 | 図解画像の生成と採否 | 図解文言が校正済みであること | `scripts/generate_asset.js`（承認ゲート） |
-| P11 | Remotion プロジェクト同期 | 全素材が採用済みであること | 判断（`remotion-project.md`） |
+| P11 | Remotion プロジェクト同期 | 全素材が採用済みで、トランジションが選定済みであること | 判断（`remotion-project.md`） |
 | P12 | レンダリング | 出力規格が設定済みであること | `scripts/render_video.js` |
 | P13 | 機械検証 | mp4 が存在すること | `scripts/analyze_frames.js` |
 | P14 | 人間審査 | 機械検証が完了していること | 人間 |
@@ -116,6 +116,15 @@ flowchart TD
     P15 --> P9
     P15 --> P3
 ```
+
+## トランジションの選定（P7）
+
+カット境界に置く遷移は、**設計書の内容からこの工程で選定します**。合成側で場当たりに決めません。
+
+- 選定の対応表と制約は `references/remotion-project.md` 6 節にあります
+- 既定はクロスディゾルブです。輝度が急激に変わる遷移（暗転・ホワイトアウト）を既定にしません
+- 選定した種類・長さ・理由を台本台帳の `scenes[].transitions[]` へ記録します
+- 記録が無いカットがある場合、P11 の入口ゲートで停止します
 
 ## 分岐条件
 

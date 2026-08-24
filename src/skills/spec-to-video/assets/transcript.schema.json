@@ -4,53 +4,94 @@
   "title": "台本台帳",
   "description": "シーンごとの字幕・ナレーション・図解文言と、合成後に計測した実尺を保持します。",
   "type": "object",
-  "required": ["version", "scenes"],
+  "required": [
+    "version",
+    "scenes"
+  ],
   "additionalProperties": false,
   "properties": {
-    "version": { "type": "string", "description": "台帳の形式バージョンです。" },
+    "version": {
+      "type": "string",
+      "description": "台帳の形式バージョンです。"
+    },
     "scenes": {
       "type": "array",
-      "items": { "$ref": "#/$defs/scene" }
+      "items": {
+        "$ref": "#/$defs/scene"
+      }
     }
   },
   "$defs": {
     "scene": {
       "type": "object",
-      "required": ["scene_id", "subtitle_lines", "narration_text", "figure_text"],
+      "required": [
+        "scene_id",
+        "subtitle_lines",
+        "narration_text",
+        "figure_text"
+      ],
       "additionalProperties": false,
       "properties": {
-        "scene_id": { "type": "string", "description": "シーン識別子です。" },
+        "scene_id": {
+          "type": "string",
+          "description": "シーン識別子です。"
+        },
         "subtitle_lines": {
           "type": "array",
           "description": "字幕行です。行ごとの文字数を保持します。",
           "items": {
             "type": "object",
-            "required": ["text", "char_count"],
+            "required": [
+              "text",
+              "char_count"
+            ],
             "additionalProperties": false,
             "properties": {
-              "text": { "type": "string" },
-              "char_count": { "type": "integer", "minimum": 0 }
+              "text": {
+                "type": "string"
+              },
+              "char_count": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           }
         },
-        "narration_text": { "type": "string", "description": "ナレーション原文です。" },
+        "narration_text": {
+          "type": "string",
+          "description": "ナレーション原文です。"
+        },
         "figure_text": {
           "type": "array",
           "description": "図解内に含める文言です。",
-          "items": { "type": "string" }
+          "items": {
+            "type": "string"
+          }
         },
         "cuts": {
           "type": "array",
           "description": "カット単位のナレーションです。アニメーションとの同期はこの単位で行います。",
           "items": {
             "type": "object",
-            "required": ["cut_id", "narration_text"],
+            "required": [
+              "cut_id",
+              "narration_text"
+            ],
             "additionalProperties": false,
             "properties": {
-              "cut_id": { "type": "string" },
-              "narration_text": { "type": "string" },
-              "measured_narration_sec": { "type": "number", "minimum": 0 },
-              "audio_path": { "type": "string" }
+              "cut_id": {
+                "type": "string"
+              },
+              "narration_text": {
+                "type": "string"
+              },
+              "measured_narration_sec": {
+                "type": "number",
+                "minimum": 0
+              },
+              "audio_path": {
+                "type": "string"
+              }
             }
           }
         },
@@ -62,6 +103,113 @@
         "proofread_at": {
           "type": "string",
           "description": "校正完了日時です。ISO 8601 形式で記録します。"
+        },
+        "transitions": {
+          "type": "array",
+          "description": "カット境界に置くトランジションです。設計書の内容から選定し、選定理由とともに記録します。",
+          "items": {
+            "type": "object",
+            "required": [
+              "at_cut_id",
+              "kind",
+              "duration_sec",
+              "reason"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "at_cut_id": {
+                "type": "string",
+                "description": "遷移を置くカットの識別子です。そのカットの開始位置に置きます。"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "cross_dissolve",
+                  "cut",
+                  "dip_to_black",
+                  "dip_to_white"
+                ],
+                "description": "遷移の種類です。"
+              },
+              "duration_sec": {
+                "type": "number",
+                "minimum": 0,
+                "description": "遷移の長さです。cut の場合は 0 です。"
+              },
+              "reason": {
+                "type": "string",
+                "description": "設計書のどの記述から、この遷移を選んだかを書きます。"
+              }
+            }
+          }
+        },
+        "direction": {
+          "type": "object",
+          "description": "演出の選定結果です。設計書の内容から工程 P7 で決め、根拠とともに記録します。",
+          "required": [
+            "motion_easing",
+            "blend_mode",
+            "telop_pattern"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "motion_easing": {
+              "type": "string",
+              "enum": [
+                "ease",
+                "linear",
+                "hold"
+              ],
+              "description": "動きの質感です。既定は ease です。"
+            },
+            "blend_mode": {
+              "type": "string",
+              "enum": [
+                "normal",
+                "multiply",
+                "screen",
+                "add"
+              ],
+              "description": "描画モードです。輝度が上がるものを選ぶ場合は blend_reason が必要です。"
+            },
+            "telop_pattern": {
+              "type": "string",
+              "enum": [
+                "multi_outline",
+                "plain"
+              ],
+              "description": "テロップの型です。座布団を敷かず、フチ処理で視認性を確保します。"
+            },
+            "effects": {
+              "type": "array",
+              "description": "使うエフェクトです。既定は空です。",
+              "items": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "purpose"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "description": "可読性の確保・強調など、使う目的です。"
+                  }
+                }
+              }
+            },
+            "color_note": {
+              "type": "string",
+              "description": "配色の根拠です。設計書のどの記述に従ったかを書きます。"
+            },
+            "blend_reason": {
+              "type": "string",
+              "description": "輝度が上がる描画モードを選んだ理由です。"
+            }
+          }
         }
       }
     }

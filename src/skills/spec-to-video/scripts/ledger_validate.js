@@ -137,6 +137,151 @@ function validateContextFree(transcript, rules) {
 }
 
 /**
+ * トランジションの選定を検査します。選定が無いまま合成へ進めないようにします。
+ * @param {Record<string, any>} transcript
+ * @param {Record<string, any>} rules
+ * @returns {Finding[]}
+ */
+function validateTransitions(transcript, rules) {
+  /** @type {Finding[]} */
+  const findings = [];
+  const limit = rules.transition;
+  /** @type {Set<string>} */
+  const usedKinds = new Set();
+
+  transcript.scenes.forEach((/** @type {Record<string, any>} */ scene) => {
+    const cuts = scene.cuts || [];
+    const transitions = scene.transitions || [];
+    cuts.forEach((/** @type {Record<string, any>} */ cut) => {
+      const selected = transitions.find(
+        (/** @type {Record<string, any>} */ item) => item.at_cut_id === cut.cut_id,
+      );
+      if (selected === undefined) {
+        findings.push({
+          code: 'transition.missing',
+          message: t('validate.transition_missing', { scene_id: scene.scene_id, cut_id: cut.cut_id }),
+        });
+        return;
+      }
+      if (!limit.kinds.includes(selected.kind)) {
+        findings.push({
+          code: 'transition.kind',
+          message: t('validate.transition_unknown_kind', { scene_id: scene.scene_id, kind: selected.kind }),
+        });
+      }
+      if (selected.reason === undefined || String(selected.reason).trim() === '') {
+        findings.push({
+          code: 'transition.reason',
+          message: t('validate.transition_reason_missing', { scene_id: scene.scene_id, cut_id: cut.cut_id }),
+        });
+      }
+      usedKinds.add(selected.kind);
+    });
+
+    // 輝度が急激に変わる遷移が連続していないかを見ます。
+    const ordered = cuts
+      .map((/** @type {Record<string, any>} */ cut) =>
+        transitions.find((/** @type {Record<string, any>} */ item) => item.at_cut_id === cut.cut_id),
+      )
+      .filter(Boolean);
+    for (let i = 1; i < ordered.length; i += 1) {
+      const previous = ordered[i - 1];
+      const current = ordered[i];
+      if (
+        limit.luminance_changing_kinds.includes(previous.kind) &&
+        limit.luminance_changing_kinds.includes(current.kind)
+      ) {
+        findings.push({
+          code: 'transition.consecutive_luminance',
+          message: t('validate.transition_consecutive_luminance', { scene_id: scene.scene_id }),
+        });
+        break;
+      }
+    }
+  });
+
+  if (usedKinds.size > limit.max_kinds_per_video) {
+    findings.push({
+      code: 'transition.kinds_count',
+      message: t('validate.transition_too_many_kinds', {
+        count: usedKinds.size,
+        max: limit.max_kinds_per_video,
+      }),
+    });
+  }
+  return findings;
+}
+
+/**
+ * 演出の選定を検査します。選定が無いまま合成へ進めないようにします。
+ * @param {Record<string, any>} transcript
+ * @param {Record<string, any>} rules
+ * @returns {Finding[]}
+ */
+function validateDirection(transcript, rules) {
+  /** @type {Finding[]} */
+  const findings = [];
+  const limit = rules.direction;
+
+  transcript.scenes.forEach((/** @type {Record<string, any>} */ scene) => {
+    const direction = scene.direction;
+    if (direction === undefined) {
+      findings.push({
+        code: 'direction.missing',
+        message: t('validate.direction_missing', { scene_id: scene.scene_id }),
+      });
+      return;
+    }
+
+    /** @type {[string, string[]][]} */
+    const enums = [
+      ['motion_easing', limit.motion_easing],
+      ['blend_mode', limit.blend_modes],
+      ['telop_pattern', limit.telop_patterns],
+    ];
+    enums.forEach(([field, allowed]) => {
+      const value = direction[field];
+      if (value === undefined || !allowed.includes(value)) {
+        findings.push({
+          code: 'direction.value',
+          message: t('validate.direction_unknown_value', {
+            scene_id: scene.scene_id,
+            field,
+            value: value === undefined ? t('validate.value_unrecorded') : value,
+          }),
+        });
+      }
+    });
+
+    if (
+      limit.luminance_raising_blend_modes.includes(direction.blend_mode) &&
+      (direction.blend_reason === undefined || String(direction.blend_reason).trim() === '')
+    ) {
+      findings.push({
+        code: 'direction.blend_reason',
+        message: t('validate.direction_blend_reason_missing', {
+          scene_id: scene.scene_id,
+          mode: direction.blend_mode,
+        }),
+      });
+    }
+
+    (direction.effects || []).forEach((/** @type {Record<string, any>} */ effect) => {
+      if (effect.purpose === undefined || String(effect.purpose).trim() === '') {
+        findings.push({
+          code: 'direction.effect_purpose',
+          message: t('validate.direction_effect_purpose_missing', {
+            scene_id: scene.scene_id,
+            name: effect.name,
+          }),
+        });
+      }
+    });
+  });
+  return findings;
+}
+
+/**
  * 尺整合を検査します。実尺がシーン尺を超える場合のみ不適合とします。
  * 設計書側に対応するシーンが無い場合も検出します。
  * @param {Record<string, any>} transcript
@@ -251,6 +396,8 @@ function validateAll(input) {
   return [
     ...validateSubtitles(input.transcript, rules),
     ...validateContextFree(input.transcript, rules),
+    ...validateTransitions(input.transcript, rules),
+    ...validateDirection(input.transcript, rules),
     ...validateDuration(input.transcript, scenesSpec),
     ...validateCutCount(input.clips, scenesSpec),
     ...validateWording(input.transcript, rules),
@@ -262,6 +409,8 @@ module.exports = {
   validateRequired,
   validateSubtitles,
   validateContextFree,
+  validateTransitions,
+  validateDirection,
   validateDuration,
   validateCutCount,
   validateWording,
