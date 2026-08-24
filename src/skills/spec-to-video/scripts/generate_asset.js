@@ -35,9 +35,52 @@ function totalCost(entries) {
 }
 
 /**
+ * 対象ごとの課金の合計を求めます。
+ * @param {CostEntry[]} entries
+ * @param {string} kind
+ * @returns {number}
+ */
+function costByKind(entries, kind) {
+  return totalCost(entries.filter((entry) => entry.operation === kind));
+}
+
+/**
+ * 対象ごとの単価を取り出します。対象の指定が無い場合は既定の単価を用います。
+ * @param {number | Record<string, number>} unitPrice
+ * @param {string} kind
+ * @returns {number}
+ */
+function resolveUnitPrice(unitPrice, kind) {
+  if (typeof unitPrice === 'number') {
+    return unitPrice;
+  }
+  const value = unitPrice[kind];
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(t('generate.unit_price_missing', { kind }));
+  }
+  return value;
+}
+
+/**
+ * 対象ごとの上限を取り出します。上限を設けない対象は Infinity を返します。
+ * @param {{hard_cap?: number, hard_cap_by_kind?: Record<string, number | null>}} costPolicy
+ * @param {string} kind
+ * @returns {number}
+ */
+function resolveKindCap(costPolicy, kind) {
+  const byKind = costPolicy.hard_cap_by_kind;
+  if (byKind === undefined || !(kind in byKind)) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const cap = byKind[kind];
+  // null は「上限を設けない」を表します。
+  return cap === null ? Number.POSITIVE_INFINITY : Number(cap);
+}
+
+/**
  * 素材を生成します。承認・上限・冪等性をここで判定します。
- * @param {{materials: Material[], costLog: CostEntry[], costPolicy: {retry_limit: number, hard_cap: number}, unitPrice: number, approved: boolean, generator?: Generator, environment?: NodeJS.ProcessEnv}} input
- * @returns {{materials: Material[], costLog: CostEntry[], stopped_by: string | null, held: string[]}}
+ * @param {{materials: Material[], costLog: CostEntry[], costPolicy: {retry_limit: number, hard_cap?: number, hard_cap_by_kind?: Record<string, number | null>}, unitPrice: number | Record<string, number>, approved: boolean, generator?: Generator, environment?: NodeJS.ProcessEnv}} input
+ * @returns {{materials: Material[], costLog: CostEntry[], stopped_by: string | null, held: string[], stopped_kinds: string[]}}
  */
 function generateAssets(input) {
   if (input.approved !== true) {
@@ -57,15 +100,35 @@ function generateAssets(input) {
   /** @type {string | null} */
   let stoppedBy = null;
 
+  /** @type {string[]} */
+  const stoppedKinds = [];
+  const overallCap =
+    input.costPolicy.hard_cap === undefined
+      ? Number.POSITIVE_INFINITY
+      : Number(input.costPolicy.hard_cap);
+
   for (const material of materials) {
     if (material.adopted === true) {
       continue;
     }
-    const nextCost = estimateCost({ unit_price: input.unitPrice, quantity: 1, retake_factor: 1 });
-    // 次の生成を実行すると上限を超える場合、実行せずに停止します。
-    if (totalCost(costLog) + nextCost > input.costPolicy.hard_cap) {
+    const kind = String(material.kind);
+    const nextCost = estimateCost({
+      unit_price: resolveUnitPrice(input.unitPrice, kind),
+      quantity: 1,
+      retake_factor: 1,
+    });
+
+    // 全体の上限を超える場合は、すべての生成を停止します。
+    if (totalCost(costLog) + nextCost > overallCap) {
       stoppedBy = 'hard_cap';
       break;
+    }
+    // 対象ごとの上限を超える場合は、その対象だけを停止し、他の対象は続けます。
+    if (costByKind(costLog, kind) + nextCost > resolveKindCap(input.costPolicy, kind)) {
+      if (!stoppedKinds.includes(kind)) {
+        stoppedKinds.push(kind);
+      }
+      continue;
     }
     if (material.generation_count >= input.costPolicy.retry_limit) {
       held.push(material.material_id);
@@ -88,10 +151,20 @@ function generateAssets(input) {
     });
   }
 
+  if (stoppedBy === null && stoppedKinds.length > 0) {
+    stoppedBy = 'hard_cap_by_kind';
+  }
   if (stoppedBy === null && held.length > 0) {
     stoppedBy = 'retry_limit';
   }
-  return { materials, costLog, stopped_by: stoppedBy, held };
+  return { materials, costLog, stopped_by: stoppedBy, held, stopped_kinds: stoppedKinds };
 }
 
-module.exports = { generateAssets, estimateCost, totalCost };
+module.exports = {
+  generateAssets,
+  estimateCost,
+  totalCost,
+  costByKind,
+  resolveUnitPrice,
+  resolveKindCap,
+};

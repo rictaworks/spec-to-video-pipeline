@@ -52,5 +52,6 @@
   "validate.transition_too_long": "シーン {scene_id} のカット {cut_id} の遷移 {duration} 秒が、カット尺の {ratio} を超えています。",
   "validate.transition_too_many_kinds": "用いているトランジションの種類が {count} 種類で、上限 {max} を超えています。",
   "validate.transition_unknown_kind": "シーン {scene_id} のトランジション種別 {kind} は対応表にありません。",
-  "validate.value_unrecorded": "未記録"
+  "validate.value_unrecorded": "未記録",
+  "generate.unit_price_missing": "対象 {kind} の単価が渡されていません。使用モデルの料金表から単価を読み取ってください。"
 }

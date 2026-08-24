@@ -158,7 +158,9 @@ graph TD
 | scenes[] | narration_policy | 必須 | ナレーション方針 |
 | scenes[] | intentional_luminance_change | 必須 | 意図的な輝度・色変化を含むか |
 | output_spec | resolution / fps / codec / audio | 必須 | 出力規格 |
-| cost_policy | retry_limit / hard_cap | 必須 | カット単位のリトライ上限と課金上限。いずれも数値とする（通貨単位は設計書の記載に従う） |
+| cost_policy | retry_limit | 必須 | カット単位のリトライ上限。数値とする |
+| cost_policy | hard_cap | 任意 | 全生成の合計に効く課金上限。数値とする（通貨単位は設計書の記載に従う） |
+| cost_policy | hard_cap_by_kind | 任意 | 対象（`clip` / `still_seed` / `figure`）ごとの課金上限。`null` は上限を設けないことを表す。`hard_cap` と併用でき、先に到達した方で停止する |
 | narration | engine / speaker | 必須 | 合成エンジンと話者 |
 
 ### 8.2 中間成果物：台帳

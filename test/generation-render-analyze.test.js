@@ -189,3 +189,74 @@ describe('ハードキャップの事前停止', () => {
     expect(result.costLog).toHaveLength(2);
   });
 });
+
+describe('対象ごとの課金上限', () => {
+  const { costByKind, resolveKindCap, resolveUnitPrice } = require('../src/skills/spec-to-video/scripts/generate_asset.js');
+  const DEV_ENV = { SPEC_TO_VIDEO_ENV: 'development' };
+
+  /** クリップ2本と図解2枚です。 */
+  /** @returns {any[]} */
+  function mixed() {
+    return [
+      { material_id: 'M1', scene_id: 'S1', order: 0, kind: 'clip', adopted: false, generation_count: 0, prompt: 'p', model_name: 'veo' },
+      { material_id: 'M2', scene_id: 'S1', order: 1, kind: 'clip', adopted: false, generation_count: 0, prompt: 'p', model_name: 'veo' },
+      { material_id: 'M3', scene_id: 'S2', order: 0, kind: 'figure', adopted: false, generation_count: 0, prompt: 'p', model_name: 'nano banana' },
+      { material_id: 'M4', scene_id: 'S2', order: 1, kind: 'figure', adopted: false, generation_count: 0, prompt: 'p', model_name: 'nano banana' },
+    ];
+  }
+
+  const UNIT_PRICE = { clip: 0.4, figure: 0.067 };
+
+  test('上限を設けない対象は Infinity として扱います', () => {
+    expect(resolveKindCap({ hard_cap_by_kind: { clip: 10, figure: null } }, 'figure')).toBe(Infinity);
+    expect(resolveKindCap({ hard_cap_by_kind: { clip: 10, figure: null } }, 'clip')).toBe(10);
+    expect(resolveKindCap({}, 'clip')).toBe(Infinity);
+  });
+
+  test('対象ごとの単価を取り出します', () => {
+    expect(resolveUnitPrice(UNIT_PRICE, 'clip')).toBe(0.4);
+    expect(resolveUnitPrice(0.5, 'figure')).toBe(0.5);
+    expect(() => resolveUnitPrice(UNIT_PRICE, 'still_seed')).toThrow();
+  });
+
+  test('クリップだけ上限に達した場合、図解の生成は続きます', () => {
+    const result = generateAssets({
+      materials: mixed(),
+      costLog: [],
+      costPolicy: { retry_limit: 3, hard_cap_by_kind: { clip: 0.5, figure: null } },
+      unitPrice: UNIT_PRICE,
+      approved: true,
+      environment: DEV_ENV,
+    });
+    expect(costByKind(result.costLog, 'clip')).toBeCloseTo(0.4, 4);
+    expect(result.costLog.filter((e) => e.operation === 'figure')).toHaveLength(2);
+    expect(result.stopped_kinds).toEqual(['clip']);
+    expect(result.stopped_by).toBe('hard_cap_by_kind');
+  });
+
+  test('上限を設けない対象は数量に関わらず生成します', () => {
+    const result = generateAssets({
+      materials: mixed(),
+      costLog: [],
+      costPolicy: { retry_limit: 3, hard_cap_by_kind: { clip: 10, figure: null } },
+      unitPrice: UNIT_PRICE,
+      approved: true,
+      environment: DEV_ENV,
+    });
+    expect(result.costLog).toHaveLength(4);
+    expect(result.stopped_by).toBeNull();
+  });
+
+  test('全体上限が先に到達した場合はすべて停止します', () => {
+    const result = generateAssets({
+      materials: mixed(),
+      costLog: [],
+      costPolicy: { retry_limit: 3, hard_cap: 0.5, hard_cap_by_kind: { clip: 10, figure: null } },
+      unitPrice: UNIT_PRICE,
+      approved: true,
+      environment: DEV_ENV,
+    });
+    expect(result.stopped_by).toBe('hard_cap');
+    expect(result.costLog).toHaveLength(1);
+  });
+});
