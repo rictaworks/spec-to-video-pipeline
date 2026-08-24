@@ -1,6 +1,6 @@
 {
   "name": "spec-to-video-pipeline",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "動画設計書からmp4を生成するエージェントスキルの開発リポジトリです。",
   "private": true,
   "license": "Apache-2.0",
