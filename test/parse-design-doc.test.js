@@ -20,8 +20,11 @@ function baseExtracted() {
       {
         scene_id: 'S1',
         duration_sec: 8,
-        material_kind: 'clip',
         material_count: 2,
+        cuts: [
+          { cut_id: 'C1', material_kind: 'clip', duration_sec: 4 },
+          { cut_id: 'C2', material_kind: 'clip', duration_sec: 4 },
+        ],
         visual: '街の遠景',
         subtitles: ['ここから始まります'],
         narration_policy: '導入を読みます',
@@ -99,8 +102,20 @@ describe('正規化の検査', () => {
 
   test('対応していない素材種別は停止します', () => {
     const extracted = baseExtracted();
-    extracted.scenes[0].material_kind = 'photo';
+    extracted.scenes[0].cuts[0].material_kind = 'photo';
     expect(() => normalizeDesignDoc(extracted)).toThrow(/photo/);
+  });
+
+  test('カット数の指定とカット一覧の件数が食い違う場合は停止します', () => {
+    const extracted = baseExtracted();
+    extracted.scenes[0].material_count = 3;
+    expect(() => normalizeDesignDoc(extracted)).toThrow(/3/);
+  });
+
+  test('課金上限が数値でない場合は停止します', () => {
+    const extracted = baseExtracted();
+    extracted.cost_policy.hard_cap = '未設定';
+    expect(() => normalizeDesignDoc(extracted)).toThrow(/hard_cap/);
   });
 
   test('シーンが無い場合は停止します', () => {
@@ -120,8 +135,8 @@ describe('実運用の企画書の形式', () => {
       {
         scene_id: 'S1',
         duration_sec: '240F',
-        material_kind: 'title_card',
         material_count: 1,
+        cuts: [{ cut_id: 'C01', material_kind: 'title_card', duration_sec: '240F' }],
         visual: '黒背景にタイトル',
         subtitles: ['第1章'],
         narration_policy: 'タイトル読み上げのみ',
@@ -130,8 +145,12 @@ describe('実運用の企画書の形式', () => {
       {
         scene_id: 'S8',
         duration_sec: '360F',
-        material_kind: 'title_card',
         material_count: 3,
+        cuts: [
+          { cut_id: 'C19', material_kind: 'title_card', duration_sec: '120F' },
+          { cut_id: 'C20', material_kind: 'title_card', duration_sec: '120F' },
+          { cut_id: 'C21', material_kind: 'title_card', duration_sec: '120F' },
+        ],
         visual: '章の一覧とエンドカード',
         subtitles: ['次章で扱います'],
         narration_policy: '次章以降で各手続きを扱う',
@@ -156,5 +175,55 @@ describe('実運用の企画書の形式', () => {
     const extracted = frameBased();
     extracted.output_spec.fps = '未定';
     expect(() => normalizeDesignDoc(extracted)).toThrow(/duration_sec/);
+  });
+});
+
+describe('1つのシーンに素材種別が混在する形式', () => {
+  /** 実運用の企画書では、図解とクリップが同じシーンに並びます。 */
+  /** @returns {any} */
+  function mixedScene() {
+    return {
+      meta: {
+        repository: 'climate-site-risk-concept-video',
+        edition: 'デモ版',
+        production_mode: 'generative',
+        models: 'Veo 3.1 Fast / nano banana / VOICEVOX',
+      },
+      output_spec: { resolution: '1920x1080', fps: '30fps', codec: 'H.264', audio: 'AAC' },
+      cost_policy: { retry_limit: 3, hard_cap: 20000 },
+      narration: { engine: 'VOICEVOX', speaker: 'No.7' },
+      scenes: [
+        {
+          scene_id: 'S4',
+          duration_sec: '420F',
+          material_count: 2,
+          visual: '図解とクリップ',
+          subtitles: ['問い'],
+          narration_policy: '問いを提示します',
+          intentional_luminance_change: false,
+          cuts: [
+            { cut_id: 'C09', material_kind: 'figure', duration_sec: '180F' },
+            { cut_id: 'C10', material_kind: 'clip', duration_sec: '240F' },
+          ],
+        },
+      ],
+    };
+  }
+
+  test('図解とクリップの混在を丸めずに保持します', () => {
+    const result = normalizeDesignDoc(mixedScene());
+    expect(result.scenes[0].cuts.map((/** @type {any} */ cut) => cut.material_kind)).toEqual(['figure', 'clip']);
+  });
+
+  test('カットの尺もフレーム表記から秒へ揃えます', () => {
+    const result = normalizeDesignDoc(mixedScene());
+    expect(result.scenes[0].cuts[0].duration_sec).toBe(6);
+    expect(result.scenes[0].cuts[1].duration_sec).toBe(8);
+  });
+
+  test('カット一覧が無いシーンは欠損として停止します', () => {
+    const extracted = mixedScene();
+    delete extracted.scenes[0].cuts;
+    expect(() => normalizeDesignDoc(extracted)).toThrow(/cuts/);
   });
 });

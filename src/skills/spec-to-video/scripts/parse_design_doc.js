@@ -25,7 +25,7 @@ function loadDurationUnits() {
 const SCENE_REQUIRED = [
   'scene_id',
   'duration_sec',
-  'material_kind',
+  'cuts',
   'material_count',
   'visual',
   'subtitles',
@@ -138,6 +138,15 @@ function normalizeDesignDoc(extracted) {
   const meta = pick(extracted.meta, META_REQUIRED, 'meta');
   const outputSpec = pick(extracted.output_spec, OUTPUT_REQUIRED, 'output_spec');
   const costPolicy = pick(extracted.cost_policy, COST_REQUIRED, 'cost_policy');
+
+  ['retry_limit', 'hard_cap'].forEach((field) => {
+    if (costPolicy[field] === undefined) return;
+    const value = Number(costPolicy[field]);
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error(t('parse.cost_policy_not_numeric', { field, value: String(costPolicy[field]) }));
+    }
+    costPolicy[field] = value;
+  });
   const narration = pick(extracted.narration, NARRATION_REQUIRED, 'narration');
 
   if (meta.production_mode !== undefined && !PRODUCTION_MODES.includes(String(meta.production_mode))) {
@@ -163,6 +172,12 @@ function normalizeDesignDoc(extracted) {
         }
         return;
       }
+      if (field === 'cuts') {
+        if (!Array.isArray(value) || value.length === 0) {
+          missing.push(id + '.' + field);
+        }
+        return;
+      }
       if (field === 'subtitles') {
         if (!Array.isArray(value) || value.length === 0) {
           missing.push(id + '.' + field);
@@ -183,10 +198,30 @@ function normalizeDesignDoc(extracted) {
         normalized.duration_source_unit = converted.unit;
       }
     }
-
-    if (scene !== null && scene !== undefined && scene.material_kind !== undefined) {
-      if (!MATERIAL_KINDS.includes(String(scene.material_kind))) {
-        throw new Error(t('parse.unknown_material_kind', { scene_id: id, value: String(scene.material_kind) }));
+    const cuts = scene === null || scene === undefined ? undefined : scene.cuts;
+    if (Array.isArray(cuts)) {
+      cuts.forEach((/** @type {Record<string, any>} */ cut, index) => {
+        if (cut.cut_id === undefined || String(cut.cut_id).trim() === '') {
+          missing.push(id + '.cuts[' + index + '].cut_id');
+        }
+        if (!MATERIAL_KINDS.includes(String(cut.material_kind))) {
+          throw new Error(t('parse.unknown_material_kind', { scene_id: id, value: String(cut.material_kind) }));
+        }
+        if (cut.duration_sec !== undefined) {
+          const cutDuration = toSeconds(cut.duration_sec, fps === null ? Number.NaN : fps);
+          if (cutDuration === null) {
+            missing.push(id + '.cuts[' + index + '].duration_sec');
+          } else {
+            cut.duration_sec = Number(cutDuration.seconds.toFixed(3));
+          }
+        }
+      });
+      if (scene.material_count !== undefined && Number(scene.material_count) !== cuts.length) {
+        throw new Error(t('parse.cut_count_mismatch', {
+          scene_id: id,
+          declared: String(scene.material_count),
+          actual: String(cuts.length),
+        }));
       }
     }
 
