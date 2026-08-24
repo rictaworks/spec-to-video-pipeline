@@ -110,3 +110,43 @@ describe('分量と文体', () => {
     expect(/\p{Extended_Pictographic}/u.test(source)).toBe(false);
   });
 });
+
+describe('未決事項の尋ね方', () => {
+  const template = fs
+    .readFileSync(path.join(skillRoot, 'assets', 'question.template.md'), 'utf8')
+    .split(CR)
+    .join('');
+
+  test('SKILL.md に尋ねる旨を明記しています', () => {
+    expect(source).toContain('未決事項は尋ねます');
+    expect(source).toContain('回答を待たずに既定値で進めません');
+  });
+
+  test('尋ねる雛形を参照しています', () => {
+    expect(source).toContain('assets/question.template.md');
+    expect(fs.existsSync(path.join(skillRoot, 'assets', 'question.template.md'))).toBe(true);
+  });
+
+  test.each([
+    '決まっていないこと',
+    'なぜ必要か',
+    '選択肢',
+    '推奨',
+  ])('雛形に %s の欄があります', (heading) => {
+    expect(template).toContain(heading);
+  });
+
+  test('選択肢を示せない場合の扱いが雛形にあります', () => {
+    expect(template).toContain('選択肢を示せない場合');
+    expect(template).toContain('必要な情報は何か');
+  });
+
+  test('資料が矛盾する場合は両方の記述を並べます', () => {
+    expect(template).toContain('資料が矛盾している場合');
+    expect(template).toContain('両方の記述をそのまま並べて');
+  });
+
+  test('回答の根拠を実行レポートへ記録する旨があります', () => {
+    expect(template).toContain('実行レポート');
+  });
+});
