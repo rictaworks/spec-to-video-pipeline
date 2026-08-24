@@ -34,5 +34,16 @@
   "validate.scenes_spec_missing": "設計書のシーン情報が渡されていません。尺整合とカット数の検査を実施できないため停止します。",
   "validate.scene_not_in_spec": "シーン {scene_id} が設計書側に見つかりません。シーン識別子の対応を確認してください。",
   "subtitles.scenes_spec_missing": "設計書のシーン情報が渡されていません。字幕の時刻を決められないため停止します。",
-  "subtitles.scene_not_in_spec": "シーン {scene_id} が設計書側に見つかりません。字幕の時刻を決められないため停止します。"
+  "subtitles.scene_not_in_spec": "シーン {scene_id} が設計書側に見つかりません。字幕の時刻を決められないため停止します。",
+  "validate.transition_missing": "シーン {scene_id} のカット {cut_id} にトランジションの選定がありません。設計書の内容から選び、理由とともに記録してください。",
+  "validate.transition_unknown_kind": "シーン {scene_id} のトランジション種別 {kind} は対応表にありません。",
+  "validate.transition_reason_missing": "シーン {scene_id} のカット {cut_id} のトランジションに選定理由がありません。",
+  "validate.transition_too_long": "シーン {scene_id} のカット {cut_id} の遷移 {duration} 秒が、カット尺の {ratio} を超えています。",
+  "validate.transition_too_many_kinds": "用いているトランジションの種類が {count} 種類で、上限 {max} を超えています。",
+  "validate.transition_consecutive_luminance": "シーン {scene_id} で輝度が急激に変わる遷移が連続しています。光感受性の検証で不適合となる可能性があります。",
+  "validate.direction_missing": "シーン {scene_id} の演出が選定されていません。動きの質感・描画モード・テロップの型を決めて記録してください。",
+  "validate.direction_unknown_value": "シーン {scene_id} の演出 {field} の値 {value} は対応表にありません。",
+  "validate.direction_blend_reason_missing": "シーン {scene_id} は輝度が上がる描画モード {mode} を選んでいますが、理由が記録されていません。",
+  "validate.direction_effect_purpose_missing": "シーン {scene_id} のエフェクト {name} に使う目的が記録されていません。",
+  "validate.value_unrecorded": "未記録"
 }

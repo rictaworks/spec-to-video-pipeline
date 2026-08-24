@@ -33,5 +33,40 @@
     "そのため",
     "こちら",
     "そちら"
-  ]
+  ],
+  "transition": {
+    "kinds": [
+      "cross_dissolve",
+      "cut",
+      "dip_to_black",
+      "dip_to_white"
+    ],
+    "luminance_changing_kinds": [
+      "dip_to_black",
+      "dip_to_white"
+    ],
+    "max_kinds_per_video": 3,
+    "max_ratio_of_cut_duration": 0.2
+  },
+  "direction": {
+    "motion_easing": [
+      "ease",
+      "linear",
+      "hold"
+    ],
+    "blend_modes": [
+      "normal",
+      "multiply",
+      "screen",
+      "add"
+    ],
+    "luminance_raising_blend_modes": [
+      "screen",
+      "add"
+    ],
+    "telop_patterns": [
+      "multi_outline",
+      "plain"
+    ]
+  }
 }
